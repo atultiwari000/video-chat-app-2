@@ -8,16 +8,18 @@ export const useMedia = ({
   remoteUserName, 
   setRemoteUserName, 
   room,
-  navigate  
+  navigate,
+  socket
 } : {
   remoteSocketId?: string | null;
   localUserName?: string;
   remoteUserName?: string;
   setRemoteUserName?: (s: string) => void;
   room?: string;
-  navigate?: any;  
+    navigate?: any;  
+    socket?: any;
 }) => {
-  const socket = useSocket();
+  // const socket = useSocket();
   const [myStream, setMyStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
@@ -163,25 +165,134 @@ export const useMedia = ({
     }
   }, [myStream, socket, remoteSocketId, room, navigate, setRemoteStream, setMyStream, setRemoteUserName]);
 
-  const toggleVideo = useCallback(() => {
+  // Replace the toggleVideo and toggleAudio functions in useMedia.ts
+  const toggleVideo = useCallback(async () => {
     if (!myStream) return false;
+    
     const videoTrack = myStream.getVideoTracks()[0];
+    
     if (videoTrack) {
+      // Video track exists, just toggle it
       videoTrack.enabled = !videoTrack.enabled;
+      
+      // Update sessionStorage
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem("videoEnabled", String(videoTrack.enabled));
+      }
+      
       return videoTrack.enabled;
+    } else {
+      // No video track exists, need to get a new stream with video
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+        
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        
+        // Add the new video track to existing stream
+        myStream.addTrack(newVideoTrack);
+        
+        // Add to peer connection and trigger renegotiation
+        const peer = PeerService.getPeer();
+        if (peer && peer.connectionState !== 'closed' && remoteSocketId) {
+          // Add track to peer
+          peer.addTrack(newVideoTrack, myStream);
+          
+          // Create new offer to renegotiate
+          const offer = await peer.createOffer();
+          await peer.setLocalDescription(offer);
+          
+          // Send new offer to remote peer
+          if (socket) {
+            socket.emit("user:call", { 
+              to: remoteSocketId, 
+              offer, 
+              userName: localUserName 
+            });
+          }
+        }
+        
+        // Update sessionStorage
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem("videoEnabled", "true");
+        }
+        
+        // Trigger a re-render
+        setMyStream(new MediaStream([...myStream.getTracks()]));
+        
+        return true;
+      } catch (error) {
+        console.error("Error adding video track:", error);
+        return false;
+      }
     }
-    return false;
-  }, [myStream]);
+  }, [myStream, setMyStream, remoteSocketId, socket, localUserName]);
 
-  const toggleAudio = useCallback(() => {
+  const toggleAudio = useCallback(async () => {
     if (!myStream) return false;
+    
     const audioTrack = myStream.getAudioTracks()[0];
+    
     if (audioTrack) {
+      // Audio track exists, just toggle it
       audioTrack.enabled = !audioTrack.enabled;
+      
+      // Update sessionStorage
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem("audioEnabled", String(audioTrack.enabled));
+      }
+      
       return audioTrack.enabled;
+    } else {
+      // No audio track exists, need to get a new stream with audio
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: false,
+          audio: true
+        });
+        
+        const newAudioTrack = newStream.getAudioTracks()[0];
+        
+        // Add the new audio track to existing stream
+        myStream.addTrack(newAudioTrack);
+        
+        // Add to peer connection and trigger renegotiation
+        const peer = PeerService.getPeer();
+        if (peer && peer.connectionState !== 'closed' && remoteSocketId) {
+          // Add track to peer
+          peer.addTrack(newAudioTrack, myStream);
+          
+          // Create new offer to renegotiate
+          const offer = await peer.createOffer();
+          await peer.setLocalDescription(offer);
+          
+          // Send new offer to remote peer
+          if (socket) {
+            socket.emit("user:call", { 
+              to: remoteSocketId, 
+              offer, 
+              userName: localUserName 
+            });
+          }
+        }
+        
+        // Update sessionStorage
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem("audioEnabled", "true");
+        }
+        
+        // Trigger a re-render
+        setMyStream(new MediaStream([...myStream.getTracks()]));
+        
+        return true;
+      } catch (error) {
+        console.error("Error adding audio track:", error);
+        return false;
+      }
     }
-    return false;
-  }, [myStream]);
+  }, [myStream, setMyStream, remoteSocketId, socket, localUserName]);
 
   const isVideoEnabled = useCallback(() => {
     const videoTrack = myStream?.getVideoTracks()[0];

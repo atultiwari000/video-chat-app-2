@@ -49,6 +49,7 @@ export default function MeetingRoom() {
     connectionState,
     messages,
     sendMessage,
+    roomFullError,
   } = useRoom();
 
   const {
@@ -62,7 +63,6 @@ export default function MeetingRoom() {
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
   const [showChat, setShowChat] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [messageInput, setMessageInput] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -105,19 +105,19 @@ export default function MeetingRoom() {
     [myStream]
   );
 
-  const handleToggleVideo = () => {
-    const newState = toggleVideo();
+  const handleToggleVideo = async () => {
+    const newState = await toggleVideo();
     setIsVideoOn(newState ?? false);
   };
 
-  const handleToggleAudio = () => {
-    const newState = toggleAudio();
+  const handleToggleAudio = async () => {
+    const newState = await toggleAudio();
     setIsAudioOn(newState ?? false);
   };
 
   const handleLeaveMeeting = () => {
     const confirmEnd = window.confirm(
-      "Are you sure you want to leave the meeting?"
+      "Are you sure you want to leave? Your call will end."
     );
     if (confirmEnd) {
       endCall();
@@ -158,6 +158,30 @@ export default function MeetingRoom() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
+      {roomFullError && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <Users className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Room Full</h2>
+                <p className="text-sm text-gray-500">Unable to join meeting</p>
+              </div>
+            </div>
+
+            <p className="text-gray-700 mb-6">{roomFullError}</p>
+
+            <button
+              onClick={() => router.push("/")}
+              className="w-full bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors font-medium"
+            >
+              Return to Home
+            </button>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -194,13 +218,6 @@ export default function MeetingRoom() {
             <Users className="w-3 h-3" />
             {remoteSocketId ? "2" : "1"}
           </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowSettings(!showSettings)}
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
         </div>
       </header>
 
@@ -301,7 +318,7 @@ export default function MeetingRoom() {
                 )}
 
                 {captionsEnabled && currentCaption && (
-                  <div className="absolute bottom-20 left-1/2 -translate-x-1/2 max-w-[90%] bg-black/90 text-white px-6 py-3 rounded-lg text-base backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 max-w-[90%] bg-black/90 text-white px-6 py-3 rounded-lg text-base backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
                     {currentCaption}
                   </div>
                 )}
@@ -462,16 +479,6 @@ export default function MeetingRoom() {
             {isFullscreen ? "Exit" : "Fullscreen"}
           </Button>
 
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => alert("Screen sharing coming soon!")}
-            className="gap-2"
-          >
-            <Monitor className="w-5 h-5" />
-            Share
-          </Button>
-
           <div className="flex-1" />
 
           <Button
@@ -485,58 +492,6 @@ export default function MeetingRoom() {
           </Button>
         </div>
       </div>
-
-      {/* Settings Modal */}
-      {/* {showSettings && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Settings
-              </h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowSettings(false)}
-              >
-                ✕
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium mb-2">Audio</h3>
-                <div className="space-y-2">
-                  <Button variant="outline" className="w-full justify-start">
-                    Select Microphone
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    Select Speaker
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-medium mb-2">Video</h3>
-                <Button variant="outline" className="w-full justify-start">
-                  Select Camera
-                </Button>
-              </div>
-
-              <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground">
-                  Room Code: <span className="font-mono">{room}</span>
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Connection:{" "}
-                  <span className="font-medium">{connectionState}</span>
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )} */}
     </div>
   );
 }

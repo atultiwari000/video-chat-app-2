@@ -36,6 +36,7 @@ export const useRoom = () => {
   });
   const [remoteSocketId, setRemoteSocketId] = useState<string | null>(null);
   const [remoteUserName, setRemoteUserName] = useState<string>("Remote User");
+  const [roomFullError, setRoomFullError] = useState<string | null>(null);
   const hasInitiatedCall = useRef(false);
 
 
@@ -90,7 +91,8 @@ export const useRoom = () => {
     remoteUserName,
     setRemoteUserName,
     room,
-    navigate: router  // Pass Next.js router
+    navigate: router, 
+    socket
   });
 
   // Signaling hook
@@ -122,11 +124,26 @@ export const useRoom = () => {
 
       if (socket && !media.myStream) {
         try {
-          
-          const stream = await navigator.mediaDevices.getUserMedia({
+          // FIXED: Ensure at least one media type is requested
+          const constraints = {
             video: videoEnabled,
-            audio: audioEnabled,
-          });
+            audio: audioEnabled
+          };
+          
+          // If both are disabled, request audio to get permission, then disable it
+          if (!videoEnabled && !audioEnabled) {
+            constraints.audio = true;
+          }
+          
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          
+          // Disable tracks if user wanted them off
+          if (!videoEnabled && !audioEnabled) {
+            stream.getAudioTracks().forEach(track => {
+              track.enabled = false;
+            });
+          }
+          
           media.setMyStream(stream);
         } catch (error) {
           console.error("Error auto-starting media:", error);
@@ -146,27 +163,23 @@ export const useRoom = () => {
       hasInitiatedCall.current ||
       !remoteSocketId ||
       !localSocketId ||
-      !media.myStream ||
       !handleCallUser
     ) {
       return;
     }
 
-    // Check if remote stream already exists
+    // Check if remote stream already exists - but don't add to deps
     if (media.remoteStream) {
       return;
     }
 
-    // IMPORTANT: Check peer state - only call if "new"
     const peer = PeerService.getPeer();
     const peerState = peer?.connectionState;
-    
     
     if (peerState !== "new") {
       return;
     }
 
-    // Determine who calls
     const amITheCaller = localSocketId < remoteSocketId;
 
     if (amITheCaller) {
@@ -177,13 +190,10 @@ export const useRoom = () => {
       }, 500);
 
       return () => clearTimeout(timer);
-    } else {
     }
   }, [
     remoteSocketId,
     localSocketId,
-    media.myStream,
-    media.remoteStream,
     handleCallUser,
   ]);
 
@@ -198,7 +208,7 @@ export const useRoom = () => {
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      e.returnValue = "Are you sure you want to leave? Your call will be ended.";
+      e.returnValue = "Are you sure you want to leave? Your call will end.";
       
       try {
         if (socket) {
@@ -218,7 +228,7 @@ export const useRoom = () => {
         console.error("Error in beforeunload cleanup:", err);
       }
 
-      return "Are you sure you want to leave? Your call will be ended.";
+      return "Are you sure you want to leave? Your call will end.";
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -231,7 +241,7 @@ export const useRoom = () => {
     const handlePopState = (e: PopStateEvent) => {
       e.preventDefault();
       const confirmLeave = window.confirm(
-        "Are you sure you want to go back? Your call will be ended."
+        "Are you sure you want to go back? Your call will end."
       );
       
       if (confirmLeave) {
@@ -310,6 +320,37 @@ export const useRoom = () => {
     }
   }, [remoteSocketId, clearChat]);
 
+    // Handle room full error
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleRoomFull = ({ room, message }: { room: string; message: string }) => {
+      setRoomFullError(message);
+      
+      // Clean up media
+      if (media.myStream) {
+        media.myStream.getTracks().forEach((track) => {
+          try { track.stop(); } catch (e) {}
+        });
+        media.setMyStream(null);
+      }
+
+      // Show alert
+      alert(`Unable to join room: ${message}`);
+      
+      // Redirect to home after 1 second
+      setTimeout(() => {
+        router.push('/');
+      }, 1000);
+    };
+
+    socket.on("room:full", handleRoomFull);
+
+    return () => {
+      socket.off("room:full", handleRoomFull);
+    };
+  }, [socket, router, media]);
+
   return {
     usernameFromQuery,
     localUserName,
@@ -324,6 +365,7 @@ export const useRoom = () => {
     messages,
     sendMessage,
     clearChat,
+    roomFullError,
     // media API
     myStream: media.myStream,
     setMyStream: media.setMyStream,

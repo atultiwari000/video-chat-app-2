@@ -19,6 +19,23 @@ export const useSignaling = (opts: {
   const hasInitiatedCall = useRef(false);
   const isProcessingCall = useRef(false);
 
+  // Helper: get media constraints from sessionStorage
+  const getMediaConstraints = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return { video: true, audio: true };
+    }
+    
+    const videoEnabled = sessionStorage.getItem("videoEnabled") !== "false";
+    const audioEnabled = sessionStorage.getItem("audioEnabled") !== "false";
+    
+    // If both are disabled, enable audio by default to allow getUserMedia to work
+    if (!videoEnabled && !audioEnabled) {
+      return { video: false, audio: true };
+    }
+    
+    return { video: videoEnabled, audio: audioEnabled };
+  }, []);
+
   // Helper: process queued ICE candidates
   const processIceCandidateQueue = useCallback(async () => {
     while (iceCandidateQueue.current.length > 0) {
@@ -32,10 +49,8 @@ export const useSignaling = (opts: {
     }
   }, []);
 
-    // Add this new handler near the top with other handlers
+  // Handle room joined
   const handleRoomJoined = useCallback(({ users }: any) => {
-    
-    // Find other user in the room (not yourself)
     const otherUser = users?.find((u: any) => u.id !== socket?.id);
     
     if (otherUser) {
@@ -52,7 +67,7 @@ export const useSignaling = (opts: {
     hasInitiatedCall.current = false;
   }, [setRemoteUserName, setRemoteSocketId]);
 
-  // Initiate call (offerer)
+  // Initiate call (offerer) - FIXED: Use existing stream or respect video/audio preferences
   const handleCallUser = useCallback(async () => {
     if (isProcessingCall.current || hasInitiatedCall.current) return;
     if (!remoteSocketId) {
@@ -66,7 +81,21 @@ export const useSignaling = (opts: {
 
       let stream = myStream;
       if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        // Get constraints
+        const constraints = getMediaConstraints();
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        // If user disabled audio/video in preview, disable them after getting permission
+        const videoWanted = sessionStorage.getItem("videoEnabled") !== "false";
+        const audioWanted = sessionStorage.getItem("audioEnabled") !== "false";
+        
+        stream.getVideoTracks().forEach(track => {
+          track.enabled = videoWanted;
+        });
+        stream.getAudioTracks().forEach(track => {
+          track.enabled = audioWanted;
+        });
+        
         setMyStream(stream);
       }
 
@@ -79,16 +108,14 @@ export const useSignaling = (opts: {
     } finally {
       isProcessingCall.current = false;
     }
-  }, [remoteSocketId, socket, myStream, setMyStream, localUserName]);
+  }, [remoteSocketId, socket, myStream, setMyStream, localUserName, getMediaConstraints]);
 
-  // Incoming call (answerer flow)
+  // Incoming call (answerer flow) - FIXED: Use existing stream or respect video/audio preferences
   const handleIncomingCall = useCallback(async ({ from, offer, userName }: any) => {
     if (isProcessingCall.current) {
       console.warn("Already processing a call, rejecting incoming");
       return;
     }
-
-    const signalingState = PeerService.getPeer().signalingState;
 
     try {
       isProcessingCall.current = true;
@@ -97,7 +124,21 @@ export const useSignaling = (opts: {
 
       let stream = myStream;
       if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        // Get constraints
+        const constraints = getMediaConstraints();
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        // If user disabled audio/video in preview, disable them after getting permission
+        const videoWanted = sessionStorage.getItem("videoEnabled") !== "false";
+        const audioWanted = sessionStorage.getItem("audioEnabled") !== "false";
+        
+        stream.getVideoTracks().forEach(track => {
+          track.enabled = videoWanted;
+        });
+        stream.getAudioTracks().forEach(track => {
+          track.enabled = audioWanted;
+        });
+        
         setMyStream(stream);
       }
 
@@ -115,7 +156,7 @@ export const useSignaling = (opts: {
     } finally {
       isProcessingCall.current = false;
     }
-  }, [myStream, setMyStream, socket, processIceCandidateQueue, setRemoteUserName, localUserName, setRemoteSocketId]);
+  }, [myStream, setMyStream, socket, processIceCandidateQueue, setRemoteUserName, localUserName, setRemoteSocketId, getMediaConstraints]);
 
   // Call accepted by remote (offerer receives answer)
   const handleCallAccepted = useCallback(async ({ from, ans, userName }: any) => {
@@ -202,46 +243,33 @@ export const useSignaling = (opts: {
     }
   }, []);
 
-  // FIXED: Cleanup function for when user leaves/disconnects
+  // Cleanup function for when user leaves/disconnects
   const cleanupRemoteConnection = useCallback(() => {
-    
-    // Step 1: Clear all refs immediately
     isRemoteDescriptionSet.current = false;
     iceCandidateQueue.current = [];
     hasInitiatedCall.current = false;
     isProcessingCall.current = false;
     
-    // Step 2: Clear remote stream and user info
     setRemoteStream(null);
     setRemoteSocketId(null);
     setRemoteUserName("Remote User");
     
-    // Step 3: Get current peer and force close it
     try {
       const peer = PeerService.getPeer();
       if (peer) {
-        
-        // Remove all tracks first
         const senders = peer.getSenders();
         senders.forEach(sender => {
           try {
             peer.removeTrack(sender);
           } catch (e) {}
         });
-        
-        // Close the connection (this sets state to "closed")
         peer.close();
       }
     } catch (e) {
       console.error("Error during peer cleanup:", e);
     }
     
-    // Step 4: Reset peer service (creates new peer with state "new")
     PeerService.reset();
-    
-    // Step 5: Verify new peer state
-    const newPeer = PeerService.getPeer();
-    
   }, [setRemoteUserName, setRemoteStream, setRemoteSocketId]);
 
   // Handle user left (explicit leave)
@@ -274,8 +302,6 @@ export const useSignaling = (opts: {
     socket.on("incoming:call", handleIncomingCall);
     socket.on("call:accepted", handleCallAccepted);
     socket.on("ice:candidate", handleIncomingIceCandidate);
-    // socket.on("peer:nego:needed", handleNegoNeeded); 
-    // socket.on("peer:nego:final", handleNegoFinal); 
     socket.on("call:ended", handleCallEnded);
     socket.on("user:disconnected", handleUserDisconnected);
     socket.on("user:left", handleUserLeft);
@@ -286,8 +312,6 @@ export const useSignaling = (opts: {
       socket.off("incoming:call", handleIncomingCall);
       socket.off("call:accepted", handleCallAccepted);
       socket.off("ice:candidate", handleIncomingIceCandidate);
-      // socket.off("peer:nego:needed", handleNegoNeeded);
-      // socket.off("peer:nego:final", handleNegoFinal);
       socket.off("call:ended", handleCallEnded);
       socket.off("user:disconnected", handleUserDisconnected);
       socket.off("user:left", handleUserLeft);
@@ -301,8 +325,6 @@ export const useSignaling = (opts: {
     handleCallEnded,
     handleUserDisconnected,
     handleUserLeft,
-    // handleNegoNeeded,
-    // handleNegoFinal,
     handleIncomingIceCandidate,
   ]);
 
@@ -315,4 +337,3 @@ export const useSignaling = (opts: {
     processIceCandidateQueue,
   };
 };
-

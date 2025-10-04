@@ -91,18 +91,18 @@ export default function Home() {
                     id="userName"
                     placeholder="Enter your name"
                     value={userName}
+                    maxLength={40}
                     onChange={(e) => setUserName(e.target.value)}
                     className="flex-1"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="room-code">
-                    Room code (optional for creating)
-                  </Label>
+                  <Label htmlFor="room-code">Room code</Label>
                   <Input
                     id="room-code"
                     placeholder="Enter room code to join"
                     value={room}
+                    maxLength={10}
                     onChange={(e) => setRoom(e.target.value)}
                     onKeyDown={(e) =>
                       e.key === "Enter" && room.trim() && handleJoinMeeting()
@@ -133,20 +133,7 @@ export default function Home() {
             </Card>
           </div>
         </div>
-        <div style={{ marginTop: "20px", fontSize: "12px", color: "#666" }}>
-          <p>Debug Info:</p>
-          <p>Socket Connected: {socket ? "Yes" : "No"}</p>
-          <p>Current Username: {userName || "Not set"}</p>
-          <p>Current Room: {room || "Not set"}</p>
-        </div>
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>© 2025 MeetFlow. Built for seamless collaboration.</p>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -18,20 +18,38 @@ const disconnectTimers = new Map();
 const roomMessages = new Map(); 
 
 io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
     
     socket.on("room:join", ({ room, userName }) => {
         const cleanRoom = String(room).trim();
         
+        // Check room size BEFORE allowing join
+        const clientsInRoom = io.sockets.adapter.rooms.get(cleanRoom);
+        const clientCount = clientsInRoom ? clientsInRoom.size : 0;
         
-        // Store validated room
+        console.log(`Room ${cleanRoom} has ${clientCount} users. ${userName} trying to join.`);
+        
+        // Reject if room already has 2 users
+        if (clientCount >= 2) {
+            console.log(`Room ${cleanRoom} is full. Rejecting ${socket.id}`);
+            socket.emit("room:full", {
+                room: cleanRoom,
+                message: "This room is full. Maximum 2 participants allowed."
+            });
+            return; // Don't proceed with join
+        }
+        
+        // Store validated room and user data
         socket.data.userName = userName;
         socket.data.room = cleanRoom;
         socket.join(cleanRoom);
+        
+        console.log(`${userName} (${socket.id}) successfully joined room: ${cleanRoom}`);
 
-        // Get a list of all clients in the room
-        const clientsInRoom = io.sockets.adapter.rooms.get(room) || new Set();
+        // Get updated list of all clients in the room (including the one who just joined)
+        const updatedClientsInRoom = io.sockets.adapter.rooms.get(cleanRoom) || new Set();
         const usersInRoom = [];
-        clientsInRoom.forEach(socketId => {
+        updatedClientsInRoom.forEach(socketId => {
             const userSocket = io.sockets.sockets.get(socketId);
             if (userSocket) {
                 usersInRoom.push({
@@ -41,12 +59,13 @@ io.on('connection', (socket) => {
             }
         });
 
+        console.log(`Total users in room ${cleanRoom}:`, usersInRoom.length);
         
-        // 1. Tell the user who just joined about the others already in the room
+        // 1. Tell the user who just joined about everyone in the room
         socket.emit("room:joined", { users: usersInRoom });
 
         // 2. Tell everyone else in the room that a new user has joined
-        socket.to(room).emit("user:joined", {
+        socket.to(cleanRoom).emit("user:joined", {
             id: socket.id,
             userName: userName
         });
@@ -54,30 +73,36 @@ io.on('connection', (socket) => {
 
     // Handle user leaving gracefully
     const handleLeave = (reason, room) => {
-    // const room = socket.data.room;  // Use stored value, not from event
-    const userName = socket.data.userName;
-    
-    if (!room || !userName) {
-        return;
-    }
-    
+        const userName = socket.data.userName;
+        
+        if (!room || !userName) {
+            return;
+        }
+        
+        console.log(`${userName} (${socket.id}) leaving room ${room}. Reason: ${reason}`);
 
-    socket.to(room).emit("user:left", { id: socket.id, userName });
-    socket.leave(room);
-    
-    socket.data.room = null;
-    socket.data.userName = null;
+        socket.to(room).emit("user:left", { id: socket.id, userName });
+        socket.leave(room);
+        
+        // Clear stored data
+        socket.data.room = null;
+        socket.data.userName = null;
+        
+        // Log updated room size
+        const remainingClients = io.sockets.adapter.rooms.get(room);
+        const remainingCount = remainingClients ? remainingClients.size : 0;
+        console.log(`Room ${room} now has ${remainingCount} users`);
     };
     
     socket.on('disconnect', () => {
         const room = socket.data.room;
+        console.log('User disconnected:', socket.id);
         handleLeave('native disconnect', room);
     });
 
     socket.on("leave:room", () => {
         const room = socket.data.room;
         const userName = socket.data.userName;
-        
         
         if (!room || !userName) {
             return;
@@ -88,16 +113,17 @@ io.on('connection', (socket) => {
 
     // Call signaling
     socket.on("user:call", ({ to, offer, userName }) => {
-    io.to(to).emit("incoming:call", { from: socket.id, offer, userName });
+        console.log(`Call from ${socket.id} to ${to}`);
+        io.to(to).emit("incoming:call", { from: socket.id, offer, userName });
     });
 
     socket.on("call:accepted", ({ to, ans, userName }) => {
-    // Use the userName passed from client, not from map
-    io.to(to).emit("call:accepted", { 
-        from: socket.id, 
-        ans, 
-        userName: userName || socket.data.userName 
-    });
+        console.log(`Call accepted by ${socket.id} to ${to}`);
+        io.to(to).emit("call:accepted", { 
+            from: socket.id, 
+            ans, 
+            userName: userName || socket.data.userName 
+        });
     });
 
     // Peer negotiation signaling
@@ -120,32 +146,37 @@ io.on('connection', (socket) => {
     // Handle call end
     socket.on("call:end", ({ to }) => {
         if (to) {
+            console.log(`Call ended by ${socket.id} to ${to}`);
             io.to(to).emit("call:ended", { from: socket.id });
         }
     });
 
+    // Handle chat messages
     socket.on("chat:message", ({ room, message, userName }) => {
-    
-    // Store in memory
-    if (!roomMessages.has(room)) {
-        roomMessages.set(room, []);
-    }
-    
-    const messageData = {
-        id: Date.now(),
-        sender: userName,
-        text: message,
-        timestamp: new Date(),
-    };
-    
-    roomMessages.get(room).push(messageData);
-    
-    // Broadcast to everyone in the room (including sender)
-    io.to(room).emit("chat:message", messageData);
+        console.log(`Chat message in room ${room} from ${userName}`);
+        
+        // Store in memory
+        if (!roomMessages.has(room)) {
+            roomMessages.set(room, []);
+        }
+        
+        const messageData = {
+            id: Date.now(),
+            sender: userName,
+            text: message,
+            timestamp: new Date(),
+        };
+        
+        roomMessages.get(room).push(messageData);
+        
+        // Broadcast to everyone in the room (including sender)
+        io.to(room).emit("chat:message", messageData);
     });
 });
 
 // Handle server errors
 io.engine.on("connection_error", (err) => {
-    // console.log('Connection error:', err.req, err.code, err.message, err.context);
+    console.error('Connection error:', err.code, err.message);
 });
+
+console.log('Socket.io server running on port 8000');
