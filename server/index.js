@@ -10,7 +10,7 @@ app.use(bodyParser.json());
 
 const allowedOrigins = [
     "https://video-chat-app-2-ki3scrodu-atultiwari000s-projects.vercel.app",
-    "https://video-chat-app-2-green.vercel.app/",
+    "https://video-chat-app-2-green.vercel.app",
   "http://localhost:3000" 
 ];
 
@@ -26,6 +26,10 @@ const io = new Server(server, {
 // const socketIdToUserMap = new Map();
 // const disconnectTimers = new Map();
 const roomMessages = new Map(); 
+
+app.get('/', (req, res) => {
+  res.send('Server is running');
+});
 
 io.on('connection', (socket) => {
     // console.log('User connected:', socket.id);
@@ -190,6 +194,6 @@ io.engine.on("connection_error", (err) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
