@@ -30,7 +30,12 @@ export const useSignaling = (opts: {
     
     // If both are disabled, enable audio by default to allow getUserMedia to work
     if (!videoEnabled && !audioEnabled) {
-      return { video: false, audio: true };
+      return { video: false, audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      }
+      };
     }
     
     return { video: videoEnabled, audio: audioEnabled };

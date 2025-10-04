@@ -250,7 +250,11 @@ export const useMedia = ({
       try {
         const newStream = await navigator.mediaDevices.getUserMedia({
           video: false,
-          audio: true
+            audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
         });
         
         const newAudioTrack = newStream.getAudioTracks()[0];
