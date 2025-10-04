@@ -143,14 +143,14 @@ export const useSpeechCaptions = (remoteStream: MediaStream | null) => {
       // Create audio context to route remote audio to speech recognition
       // Note: Web Speech API listens to default microphone, but we can play
       // remote audio through speakers and it will pick it up
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(remoteStream);
+    //   const audioContext = new AudioContext();
+    //   const source = audioContext.createMediaStreamSource(remoteStream);
       
       // Connect to destination (speakers) so speech recognition can hear it
-      source.connect(audioContext.destination);
+    //   source.connect(audioContext.destination);
 
-      audioContextRef.current = audioContext;
-      processorRef.current = source;
+    //   audioContextRef.current = audioContext;
+    //   processorRef.current = source;
       recognitionRef.current = recognition;
 
       recognition.start();

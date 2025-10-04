@@ -102,29 +102,30 @@ const PreviewPageClient: React.FC = () => {
 
   // Update video element when stream changes
   useEffect(() => {
-    const updateVideoSrc = async () => {
-      if (videoRef.current && previewStream) {
-        // Pause and clear existing source before setting new one
-        try {
-          videoRef.current.pause();
-        } catch (e) {
-          // Ignore if video wasn't playing
-        }
+    if (!videoRef.current || !previewStream) return;
 
-        videoRef.current.srcObject = previewStream;
+    const videoEl = videoRef.current;
 
-        // Wait a bit before attempting to play
-        try {
-          await videoRef.current.play();
-        } catch (err: any) {
-          if (err.name !== "AbortError") {
-            console.error("Error playing video:", err);
-          }
+    // Force clear and re-attach
+    videoEl.srcObject = null;
+    videoEl.load();
+
+    setTimeout(() => {
+      videoEl.srcObject = previewStream;
+      videoEl.play().catch((err) => {
+        console.error("Play failed:", err.name, err.message);
+        // Try playing again after user interaction
+        if (err.name === "NotAllowedError") {
+          console.log("Autoplay blocked - waiting for user interaction");
         }
+      });
+    }, 100);
+
+    return () => {
+      if (videoEl.srcObject) {
+        videoEl.srcObject = null;
       }
     };
-
-    updateVideoSrc();
   }, [previewStream]);
 
   const toggleVideo = () => {
