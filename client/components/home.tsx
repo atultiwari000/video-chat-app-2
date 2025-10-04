@@ -1,6 +1,5 @@
 "use client";
 
-// import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,27 +14,19 @@ import {
 import { Video } from "lucide-react";
 import { useHome } from "@/hooks/useHome";
 
-import { useSocket } from "@/context/Socket";
-
 export default function Home() {
   const {
     userName,
     setUserName,
     room,
     setRoom,
-    socket,
     handleSubmitForm,
     joinPreviewPage,
   } = useHome();
-  // const [userName, setUsername] = useState("");
-  // const [room, setRoom] = useState("");
   const router = useRouter();
 
   const handleJoinMeeting = () => {
     if (userName.trim() && room.trim()) {
-      // router.push(
-      //   `/preview/${room}?userName=${encodeURIComponent(userName)}&action=join`
-      // );
       joinPreviewPage();
     }
   };
@@ -53,51 +44,57 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Video className="w-5 h-5 text-primary-foreground" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary rounded-lg flex items-center justify-center">
+              <Video className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-semibold">MeetFlow</span>
+            <span className="text-lg sm:text-xl font-semibold">MeetFlow</span>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <main className="flex-1 flex items-center justify-center px-4 py-16">
+      <main className="flex-1 flex items-center justify-center px-4 py-8 sm:py-16">
         <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-12">
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 text-balance">
+          <div className="text-center mb-8 sm:mb-12">
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold mb-4 sm:mb-6 text-balance">
               Video meetings made simple
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
+            <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto text-balance px-4">
               Connect instantly. No downloads, no hassle. Just fast, reliable
               video calls.
             </p>
           </div>
 
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl mx-auto px-4 sm:px-0">
             <Card className="border-border">
-              <CardHeader>
-                <CardTitle>Get started</CardTitle>
-                <CardDescription>
+              <CardHeader className="space-y-1 pb-4">
+                <CardTitle className="text-xl sm:text-2xl">
+                  Get started
+                </CardTitle>
+                <CardDescription className="text-sm sm:text-base">
                   Enter your details to join or create a meeting
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="userName">userName *</Label>
+                  <Label htmlFor="userName" className="text-sm sm:text-base">
+                    userName *
+                  </Label>
                   <Input
                     id="userName"
                     placeholder="Enter your name"
                     value={userName}
                     maxLength={40}
                     onChange={(e) => setUserName(e.target.value)}
-                    className="flex-1"
+                    className="flex-1 h-10 sm:h-11 text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="room-code">Room code</Label>
+                  <Label htmlFor="room-code" className="text-sm sm:text-base">
+                    Room code
+                  </Label>
                   <Input
                     id="room-code"
                     placeholder="Enter room code to join"
@@ -107,15 +104,15 @@ export default function Home() {
                     onKeyDown={(e) =>
                       e.key === "Enter" && room.trim() && handleJoinMeeting()
                     }
-                    className="flex-1"
+                    className="flex-1 h-10 sm:h-11 text-base"
                   />
                 </div>
-                <div className="flex gap-3 pt-2">
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <Button
                     onClick={handleJoinMeeting}
                     disabled={!userName.trim() || !room.trim()}
                     variant="outline"
-                    className="flex-1 bg-transparent"
+                    className="flex-1 bg-transparent h-11 sm:h-12 text-base"
                     size="lg"
                   >
                     Join meeting
@@ -123,7 +120,7 @@ export default function Home() {
                   <Button
                     onClick={handleCreateMeeting}
                     disabled={!userName.trim()}
-                    className="flex-1"
+                    className="flex-1 h-11 sm:h-12 text-base"
                     size="lg"
                   >
                     Create meeting

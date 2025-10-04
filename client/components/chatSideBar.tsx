@@ -1,11 +1,13 @@
+"use client";
+
+import type React from "react";
+
 import { useState, memo, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Send } from "lucide-react";
+import { Send, X } from "lucide-react";
 
-// cn utility function
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }
@@ -22,9 +24,10 @@ interface ChatSidebarProps {
   messages: Message[];
   onSendMessage: (text: string) => void;
   remoteSocketId: string | null;
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
-// Memoize individual message to prevent re-renders
 const ChatMessage = memo(({ message }: { message: Message }) => (
   <div
     className={cn(
@@ -52,12 +55,17 @@ const ChatMessage = memo(({ message }: { message: Message }) => (
 ChatMessage.displayName = "ChatMessage";
 
 export const ChatSidebar = memo(
-  ({ messages, onSendMessage, remoteSocketId }: ChatSidebarProps) => {
+  ({
+    messages,
+    onSendMessage,
+    remoteSocketId,
+    isMobile = false,
+    onClose,
+  }: ChatSidebarProps) => {
     const [messageInput, setMessageInput] = useState("");
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
@@ -80,12 +88,29 @@ export const ChatSidebar = memo(
     );
 
     return (
-      <div className="w-80 border-l border-border flex flex-col">
-        <div className="p-4 border-b border-border">
-          <h2 className="font-semibold">Meeting chat</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {remoteSocketId ? "2 participants" : "Only you"}
-          </p>
+      <div
+        className={cn(
+          "flex flex-col bg-background",
+          isMobile ? "fixed inset-0 z-50" : "w-80 border-l border-border"
+        )}
+      >
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div className="flex-1">
+            <h2 className="font-semibold text-base sm:text-lg">Meeting chat</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              {remoteSocketId ? "2 participants" : "Only you"}
+            </p>
+          </div>
+          {isMobile && onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="flex-shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          )}
         </div>
 
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
@@ -103,20 +128,21 @@ export const ChatSidebar = memo(
           )}
         </ScrollArea>
 
-        <div className="p-4 border-t border-border">
+        <div className="p-3 sm:p-4 border-t border-border">
           <div className="flex gap-2">
             <Input
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
-              className="flex-1"
+              className="flex-1 h-10 sm:h-11 text-base"
               disabled={!remoteSocketId}
             />
             <Button
               size="icon"
               onClick={handleSend}
               disabled={!messageInput.trim() || !remoteSocketId}
+              className="h-10 w-10 sm:h-11 sm:w-11 flex-shrink-0"
             >
               <Send className="w-4 h-4" />
             </Button>

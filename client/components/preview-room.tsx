@@ -10,7 +10,6 @@ const PreviewPageClient: React.FC = () => {
   const params = useParams();
   const searchParams = useSearchParams();
 
-  // Get values from URL
   const roomFromUrl = typeof params?.roomId === "string" ? params.roomId : "";
   const usernameFromUrl = searchParams?.get("username") || "";
 
@@ -36,7 +35,6 @@ const PreviewPageClient: React.FC = () => {
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Get media stream on mount
   useEffect(() => {
     let stream: MediaStream | null = null;
 
@@ -50,7 +48,6 @@ const PreviewPageClient: React.FC = () => {
 
         setPreviewStream(stream);
         setPermissionError(null);
-        // Wait for next tick to ensure state is updated
         await new Promise((resolve) => setTimeout(resolve, 100));
 
         if (videoRef.current) {
@@ -59,7 +56,6 @@ const PreviewPageClient: React.FC = () => {
           try {
             await videoRef.current.play();
           } catch (playErr: any) {
-            // Ignore AbortError - it's usually harmless
             if (playErr.name !== "AbortError") {
               console.error("Error playing video:", playErr);
             }
@@ -90,7 +86,6 @@ const PreviewPageClient: React.FC = () => {
 
     getMediaStream();
 
-    // Cleanup on unmount - use the local stream variable
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => {
@@ -100,13 +95,11 @@ const PreviewPageClient: React.FC = () => {
     };
   }, []);
 
-  // Update video element when stream changes
   useEffect(() => {
     if (!videoRef.current || !previewStream) return;
 
     const videoEl = videoRef.current;
 
-    // Force clear and re-attach
     videoEl.srcObject = null;
     videoEl.load();
 
@@ -114,7 +107,6 @@ const PreviewPageClient: React.FC = () => {
       videoEl.srcObject = previewStream;
       videoEl.play().catch((err) => {
         console.error("Play failed:", err.name, err.message);
-        // Try playing again after user interaction
         if (err.name === "NotAllowedError") {
           console.log("Autoplay blocked - waiting for user interaction");
         }
@@ -162,7 +154,6 @@ const PreviewPageClient: React.FC = () => {
       sessionStorage.setItem("audioEnabled", String(audioEnabled));
     }
 
-    // Make sure userName is not empty
     const finalUserName = userName || "You";
     router.push(
       `/room/${encodeURIComponent(room)}?username=${encodeURIComponent(
@@ -179,7 +170,6 @@ const PreviewPageClient: React.FC = () => {
       setPreviewStream(null);
     }
 
-    // Clear the video element
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
@@ -191,48 +181,48 @@ const PreviewPageClient: React.FC = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Video className="w-5 h-5 text-primary-foreground" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary rounded-lg flex items-center justify-center">
+              <Video className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-semibold">MeetFlow</span>
+            <span className="text-lg sm:text-xl font-semibold">MeetFlow</span>
           </div>
         </div>
       </header>
 
       {/* Preview Content */}
-      <main className="flex-1 flex items-center justify-center px-4 py-8">
+      <main className="flex-1 flex items-center justify-center px-4 py-6 sm:py-8">
         <div className="container mx-auto max-w-4xl">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">
+          <div className="text-center mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
               Ready to join?
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               Check your video and audio before entering
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Video Preview Card */}
-            <div className="relative aspect-video bg-card rounded-2xl overflow-hidden shadow-2xl">
+            <div className="relative aspect-video bg-card rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl">
               {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
-                    <div className="animate-spin w-12 h-12 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
-                    <p>Loading camera...</p>
+                    <div className="animate-spin w-10 h-10 sm:w-12 sm:h-12 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
+                    <p className="text-sm sm:text-base">Loading camera...</p>
                   </div>
                 </div>
               )}
 
               {permissionError && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center p-6">
-                    <VideoOff className="w-16 h-16 text-destructive mb-4 mx-auto" />
-                    <p className="text-destructive font-medium mb-2">
+                  <div className="text-center p-4 sm:p-6">
+                    <VideoOff className="w-12 h-12 sm:w-16 sm:h-16 text-destructive mb-4 mx-auto" />
+                    <p className="text-sm sm:text-base text-destructive font-medium mb-2">
                       Camera access denied
                     </p>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-xs sm:text-sm text-muted-foreground px-4">
                       {permissionError}
                     </p>
                   </div>
@@ -250,15 +240,16 @@ const PreviewPageClient: React.FC = () => {
                     style={{ transform: "scaleX(-1)" }}
                   />
 
-                  {/* Show overlay when video is disabled */}
                   {!videoEnabled && (
                     <div className="absolute inset-0 flex items-center justify-center bg-card">
                       <div className="text-center">
-                        <div className="w-24 h-24 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-4xl font-bold mb-4 mx-auto">
+                        <div className="w-16 h-16 sm:w-24 sm:h-24 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-2xl sm:text-4xl font-bold mb-3 sm:mb-4 mx-auto">
                           {userName.charAt(0).toUpperCase()}
                         </div>
-                        <p className="text-card-foreground">{userName}</p>
-                        <p className="text-muted-foreground text-sm mt-2">
+                        <p className="text-sm sm:text-base text-card-foreground">
+                          {userName}
+                        </p>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                           Camera is off
                         </p>
                       </div>
@@ -266,16 +257,18 @@ const PreviewPageClient: React.FC = () => {
                   )}
 
                   {/* Username overlay */}
-                  <div className="absolute bottom-5 left-4 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">
-                    <p className="text-sm font-medium text-white">{userName}</p>
+                  <div className="absolute bottom-3 sm:bottom-5 left-3 sm:left-4 bg-black/60 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
+                    <p className="text-xs sm:text-sm font-medium text-white">
+                      {userName}
+                    </p>
                   </div>
 
                   {/* Preview Controls */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
+                  <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-3">
                     <button
                       onClick={toggleAudio}
                       disabled={!previewStream}
-                      className={`rounded-full w-12 h-12 flex items-center justify-center transition-colors ${
+                      className={`rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center transition-colors ${
                         audioEnabled
                           ? "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
                           : "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
@@ -287,16 +280,16 @@ const PreviewPageClient: React.FC = () => {
                       }
                     >
                       {audioEnabled ? (
-                        <Mic className="w-5 h-5" />
+                        <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
                       ) : (
-                        <MicOff className="w-5 h-5" />
+                        <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />
                       )}
                     </button>
 
                     <button
                       onClick={toggleVideo}
                       disabled={!previewStream}
-                      className={`rounded-full w-12 h-12 flex items-center justify-center transition-colors ${
+                      className={`rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center transition-colors ${
                         videoEnabled
                           ? "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
                           : "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
@@ -308,9 +301,9 @@ const PreviewPageClient: React.FC = () => {
                       }
                     >
                       {videoEnabled ? (
-                        <Video className="w-5 h-5" />
+                        <Video className="w-4 h-4 sm:w-5 sm:h-5" />
                       ) : (
-                        <VideoOff className="w-5 h-5" />
+                        <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />
                       )}
                     </button>
                   </div>
@@ -319,25 +312,29 @@ const PreviewPageClient: React.FC = () => {
             </div>
 
             {/* Meeting Info Card */}
-            <div className="p-4 bg-card rounded-xl border border-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Room code</p>
-                  <p className="font-mono font-semibold text-lg">{room}</p>
+            <div className="p-3 sm:p-4 bg-card rounded-lg sm:rounded-xl border border-border">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Room code
+                  </p>
+                  <p className="font-mono font-semibold text-base sm:text-lg truncate">
+                    {room}
+                  </p>
                 </div>
                 <button
                   onClick={handleCopyCode}
-                  className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg transition-colors flex-shrink-0"
                 >
                   {copied ? (
                     <>
-                      <Check className="w-4 h-4" />
-                      <span className="text-sm">Copied!</span>
+                      <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span className="text-xs sm:text-sm">Copied!</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="w-4 h-4" />
-                      <span className="text-sm">Copy code</span>
+                      <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span className="text-xs sm:text-sm">Copy</span>
                     </>
                   )}
                 </button>
@@ -345,10 +342,10 @@ const PreviewPageClient: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-4">
+            <div className="flex gap-3 sm:gap-4">
               <button
                 onClick={handleBack}
-                className="flex-1 px-6 py-3 bg-transparent border-2 border-border hover:bg-secondary/50 rounded-xl font-semibold transition-colors"
+                className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-transparent border-2 border-border hover:bg-secondary/50 rounded-lg sm:rounded-xl font-semibold transition-colors text-sm sm:text-base"
               >
                 Back
               </button>
@@ -356,7 +353,7 @@ const PreviewPageClient: React.FC = () => {
               <button
                 onClick={handleJoinCall}
                 disabled={permissionError !== null}
-                className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-colors ${
+                className={`flex-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-colors text-sm sm:text-base ${
                   permissionError
                     ? "bg-muted text-muted-foreground cursor-not-allowed"
                     : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -365,18 +362,6 @@ const PreviewPageClient: React.FC = () => {
                 Join now
               </button>
             </div>
-
-            {/* Device Status (Optional Debug Info) */}
-            {previewStream && process.env.NODE_ENV === "development" && (
-              <div className="p-4 bg-card rounded-xl border border-border">
-                <p className="font-semibold mb-2">Preview Status</p>
-                <div className="space-y-1 text-sm text-muted-foreground">
-                  <p>Video: {videoEnabled ? "On" : "Off"}</p>
-                  <p>Audio: {audioEnabled ? "On" : "Off"}</p>
-                  <p>Tracks: {previewStream.getTracks().length}</p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </main>
