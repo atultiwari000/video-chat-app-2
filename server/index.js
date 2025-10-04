@@ -21,12 +21,14 @@ io.on('connection', (socket) => {
     console.log('New socket connected:', socket.id);
     
     socket.on("room:join", ({ room, userName }) => {
-        console.log(`➡️ ${userName} (${socket.id}) is joining room: ${room}`);
+        const cleanRoom = String(room).trim();
         
-        // Store user info in a more standard way
+        console.log(`➡️ ${userName} (${socket.id}) joining room: [${cleanRoom}] (length: ${cleanRoom.length})`);
+        
+        // Store validated room
         socket.data.userName = userName;
-        socket.data.room = room;
-        socket.join(room);
+        socket.data.room = cleanRoom;
+        socket.join(cleanRoom);
 
         // Get a list of all clients in the room
         const clientsInRoom = io.sockets.adapter.rooms.get(room) || new Set();
@@ -54,29 +56,57 @@ io.on('connection', (socket) => {
     });
 
     // Handle user leaving gracefully
-    const handleLeave = (reason) => {
-        const room = socket.data.room;
-        const userName = socket.data.userName;
-        console.log(`⬅️ ${userName} (${socket.id}) disconnected (${reason}) from room: ${room}`);
+    const handleLeave = (reason, room) => {
+    // const room = socket.data.room;  // Use stored value, not from event
+    const userName = socket.data.userName;
+    
+    if (!room || !userName) {
+        console.log(`⚠️ Skipping leave - already left or never joined`);
+        return;
+    }
+    
+    console.log(`⬅️ ${userName} (${socket.id}) disconnected (${reason}) from room: ${room}`);
 
-        if (room) {
-            socket.to(room).emit("user:left", { id: socket.id, userName });
-        }
+    socket.to(room).emit("user:left", { id: socket.id, userName });
+    socket.leave(room);
+    
+    socket.data.room = null;
+    socket.data.userName = null;
     };
     
-    socket.on('disconnect', () => handleLeave('native disconnect'));
-    socket.on("leave:room", () => handleLeave('explicit leave'));
+    socket.on('disconnect', () => {
+        const room = socket.data.room;
+        handleLeave('native disconnect', room);
+    });
+
+    socket.on("leave:room", () => {
+        const room = socket.data.room;
+        const userName = socket.data.userName;
+        
+        console.log(`⬅️ Attempting leave - stored room: [${room}] (length: ${room?.length})`);
+        
+        if (!room || !userName) {
+            console.log(`⚠️ Skipping leave - room: ${room}, userName: ${userName}`);
+            return;
+        }
+        
+        handleLeave('explicit leave', room);
+    });
 
     // Call signaling
     socket.on("user:call", ({ to, offer, userName }) => {
-        console.log(`Call from ${socket.id} (${userName}) to ${to}`);
-        io.to(to).emit("incoming:call", { from: socket.id, offer, userName });
+    console.log(`Call from ${socket.id} (${userName}) to ${to}`);
+    io.to(to).emit("incoming:call", { from: socket.id, offer, userName });
     });
 
-    socket.on("call:accepted", ({ to, ans }) => {
-        const userName = socketIdToUserMap.get(socket.id);
-        console.log(`Call accepted from ${socket.id} (${userName}) to ${to}`);
-        io.to(to).emit("call:accepted", { from: socket.id, ans, userName });
+    socket.on("call:accepted", ({ to, ans, userName }) => {
+    // Use the userName passed from client, not from map
+    console.log(`Call accepted from ${socket.id} (${userName || socket.data.userName}) to ${to}`);
+    io.to(to).emit("call:accepted", { 
+        from: socket.id, 
+        ans, 
+        userName: userName || socket.data.userName 
+    });
     });
 
     // Peer negotiation signaling

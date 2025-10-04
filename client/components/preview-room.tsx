@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import {
   Video,
   VideoOff,
@@ -12,19 +12,25 @@ import {
   Check,
 } from "lucide-react";
 
-const PreviewPage: React.FC = () => {
-  const searchParams = useSearchParams();
+const PreviewPageClient: React.FC = () => {
   const router = useRouter();
+  const params = useParams();
+  const searchParams = useSearchParams();
+
+  // Get values from URL
+  const roomFromUrl = typeof params?.roomId === "string" ? params.roomId : "";
+  const usernameFromUrl = searchParams?.get("username") || "";
 
   const [userName, setUserName] = useState(
-    searchParams.get("userName") ||
+    usernameFromUrl ||
       (typeof window !== "undefined"
         ? sessionStorage.getItem("userName")
         : null) ||
       "You"
   );
+
   const [room, setRoom] = useState(
-    searchParams.get("room") ||
+    roomFromUrl ||
       (typeof window !== "undefined" ? sessionStorage.getItem("room") : null) ||
       ""
   );
@@ -151,7 +157,6 @@ const PreviewPage: React.FC = () => {
   };
 
   const handleJoinCall = () => {
-    // Store preferences
     if (typeof window !== "undefined") {
       sessionStorage.setItem("userName", userName);
       sessionStorage.setItem("room", room);
@@ -159,14 +164,15 @@ const PreviewPage: React.FC = () => {
       sessionStorage.setItem("audioEnabled", String(audioEnabled));
     }
 
-    // // Stop preview stream - it will be recreated in the room
-    // if (previewStream) {
-    //   previewStream.getTracks().forEach((track) => track.stop());
-    // }
+    console.log("Navigating to room with:", { room, userName }); // Add this debug log
 
-    // Navigate to room using Next.js router
-    router.push(`/room/${room}?userName=${encodeURIComponent(userName)}`);
-    console.log("/room/${room}?userName=${encodeURIComponent()}", userName);
+    // Make sure userName is not empty
+    const finalUserName = userName || "You";
+    router.push(
+      `/room/${encodeURIComponent(room)}?username=${encodeURIComponent(
+        finalUserName
+      )}`
+    );
   };
 
   const handleBack = () => {
@@ -384,4 +390,4 @@ const PreviewPage: React.FC = () => {
   );
 };
 
-export default PreviewPage;
+export default PreviewPageClient;

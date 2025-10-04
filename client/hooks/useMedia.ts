@@ -8,14 +8,14 @@ export const useMedia = ({
   remoteUserName, 
   setRemoteUserName, 
   room,
-  navigate  // ADD THIS
+  navigate  
 } : {
   remoteSocketId?: string | null;
   localUserName?: string;
   remoteUserName?: string;
   setRemoteUserName?: (s: string) => void;
   room?: string;
-  navigate?: any;  // ADD THIS
+  navigate?: any;  
 }) => {
   const socket = useSocket();
   const [myStream, setMyStream] = useState<MediaStream | null>(null);
@@ -31,56 +31,50 @@ export const useMedia = ({
     () => PeerService.getPeer()?.iceConnectionState ?? "new"
   );
 
-  // Attach myStream to local video element (safe play)
+  // Attach myStream to local video element
   useEffect(() => {
-    const attach = async () => {
-      if (!myVideoRef.current) return;
-      try {
-        if (!myStream) {
-          myVideoRef.current.srcObject = null;
-          return;
-        }
+    if (!myVideoRef.current || !myStream) return;
+    
+    const videoEl = myVideoRef.current;
+    
+    // Only update if different stream
+    if (videoEl.srcObject === myStream) return;
+    
+    videoEl.srcObject = myStream;
+    videoEl.play().catch(err => {
+      if (err?.name !== "AbortError") {
+        console.error("Error playing local video:", err);
+      }
+    });
 
-        try { myVideoRef.current.pause(); } catch (e) {}
-        if (myVideoRef.current.srcObject !== myStream) {
-          myVideoRef.current.srcObject = myStream;
-        }
-        await myVideoRef.current.play();
-      } catch (err: any) {
-        if (err?.name === "AbortError") {
-          console.warn("Local video play aborted (benign).");
-        } else {
-          console.error("Error while playing local video:", err);
-        }
+    return () => {
+      // Cleanup on unmount
+      if (videoEl.srcObject) {
+        videoEl.srcObject = null;
       }
     };
-    attach();
   }, [myStream]);
 
-  // Attach remoteStream to remote video element (safe play)
+  // Same for remote stream
   useEffect(() => {
-    const attach = async () => {
-      if (!remoteVideoRef.current) return;
-      try {
-        if (!remoteStream) {
-          remoteVideoRef.current.srcObject = null;
-          return;
-        }
+    if (!remoteVideoRef.current || !remoteStream) return;
+    
+    const videoEl = remoteVideoRef.current;
+    
+    if (videoEl.srcObject === remoteStream) return;
+    
+    videoEl.srcObject = remoteStream;
+    videoEl.play().catch(err => {
+      if (err?.name !== "AbortError") {
+        console.error("Error playing remote video:", err);
+      }
+    });
 
-        try { remoteVideoRef.current.pause(); } catch (e) {}
-        if (remoteVideoRef.current.srcObject !== remoteStream) {
-          remoteVideoRef.current.srcObject = remoteStream;
-        }
-        await remoteVideoRef.current.play();
-      } catch (err: any) {
-        if (err?.name === "AbortError") {
-          console.warn("Remote video play aborted (benign).");
-        } else {
-          console.error("Error while playing remote video:", err);
-        }
+    return () => {
+      if (videoEl.srcObject) {
+        videoEl.srcObject = null;
       }
     };
-    attach();
   }, [remoteStream]);
 
   // When local stream is created or re-created, ensure PeerService has senders
@@ -121,9 +115,9 @@ export const useMedia = ({
   }, []);
 
   const endCall = useCallback(() => {
-    console.log("=== END CALL INITIATED ===");
-    
-    // 1. Stop local tracks FIRST
+    const roomToLog = room || 'undefined';
+
+    // 1. Stop local tracks
     if (myStream) {
       myStream.getTracks().forEach((track) => {
         try { track.stop(); } catch (e) {}
@@ -135,7 +129,8 @@ export const useMedia = ({
       socket.emit("call:end", { to: remoteSocketId });
     }
     if (socket && room) {
-      socket.emit("leave:room", { room });
+      console.log("Emitting leave:room with:", room);
+      socket.emit("leave:room");
     }
 
     // 3. Clear streams
@@ -152,14 +147,22 @@ export const useMedia = ({
       PeerService.reset();
     } catch (err) {}
 
-    // 6. Clear session storage
-    sessionStorage.clear();
+    // 6. Clear remote connection state - ADD THIS
+    if (setRemoteUserName) setRemoteUserName("Remote User");
+    // Note: Don't clear remoteSocketId here - let the socket events handle it
 
-    // 7. Navigate immediately - use replace to prevent back button issues
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('room');
+      sessionStorage.removeItem('userName');
+      sessionStorage.removeItem('videoEnabled');
+      sessionStorage.removeItem('audioEnabled');
+    }
+    
+    // 7. Navigate
     if (navigate) {
       navigate.replace('/');
     }
-  }, [myStream, socket, remoteSocketId, room, navigate, setRemoteStream, setMyStream]);
+  }, [myStream, socket, remoteSocketId, room, navigate, setRemoteStream, setMyStream, setRemoteUserName]);
 
   const toggleVideo = useCallback(() => {
     if (!myStream) return false;

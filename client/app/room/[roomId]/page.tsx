@@ -11,12 +11,6 @@
 // }
 import MeetingRoom from "@/components/meeting-room";
 
-export default function RoomPage({
-  params,
-  searchParams,
-}: {
-  params: { roomId: string };
-  searchParams: { userName?: string };
-}) {
+export default function RoomPage() {
   return <MeetingRoom />;
 }

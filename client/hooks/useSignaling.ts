@@ -216,16 +216,49 @@ export const useSignaling = (opts: {
   // FIXED: Cleanup function for when user leaves/disconnects
   const cleanupRemoteConnection = useCallback(() => {
     console.log("=== CLEANING UP REMOTE CONNECTION ===");
+    
+    // Step 1: Clear all refs immediately
     isRemoteDescriptionSet.current = false;
     iceCandidateQueue.current = [];
     hasInitiatedCall.current = false;
     isProcessingCall.current = false;
+    
+    // Step 2: Clear remote stream and user info
+    setRemoteStream(null);
     setRemoteSocketId(null);
     setRemoteUserName("Remote User");
-    setRemoteStream(null);
-    try { PeerService.removeAllSenders(); } catch (e) {}
+    
+    // Step 3: Get current peer and force close it
+    try {
+      const peer = PeerService.getPeer();
+      if (peer) {
+        console.log("Closing peer, current state:", peer.connectionState);
+        
+        // Remove all tracks first
+        const senders = peer.getSenders();
+        senders.forEach(sender => {
+          try {
+            peer.removeTrack(sender);
+          } catch (e) {}
+        });
+        
+        // Close the connection (this sets state to "closed")
+        peer.close();
+        console.log("Peer closed, state:", peer.connectionState);
+      }
+    } catch (e) {
+      console.error("Error during peer cleanup:", e);
+    }
+    
+    // Step 4: Reset peer service (creates new peer with state "new")
     PeerService.reset();
-  }, []);
+    
+    // Step 5: Verify new peer state
+    const newPeer = PeerService.getPeer();
+    console.log("New peer created, state:", newPeer.connectionState);
+    
+    console.log("=== CLEANUP COMPLETE ===");
+  }, [setRemoteUserName, setRemoteStream, setRemoteSocketId]);
 
   // Handle user left (explicit leave)
   const handleUserLeft = useCallback(({ id }: any) => {
@@ -273,7 +306,7 @@ export const useSignaling = (opts: {
     // socket.on("peer:nego:needed", handleNegoNeeded); // Assuming you have this handler
     // socket.on("peer:nego:final", handleNegoFinal); // Assuming you have this handler
     socket.on("call:ended", handleCallEnded);
-    // socket.on("user:disconnected", handleUserDisconnected);
+    socket.on("user:disconnected", handleUserDisconnected);
     socket.on("user:left", handleUserLeft);
 
     return () => {
@@ -285,7 +318,7 @@ export const useSignaling = (opts: {
       // socket.off("peer:nego:needed", handleNegoNeeded);
       // socket.off("peer:nego:final", handleNegoFinal);
       socket.off("call:ended", handleCallEnded);
-      // socket.off("user:disconnected", handleUserDisconnected);
+      socket.off("user:disconnected", handleUserDisconnected);
       socket.off("user:left", handleUserLeft);
     };
   }, [

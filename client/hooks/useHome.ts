@@ -17,10 +17,11 @@ export const useHome = () => {
     sessionStorage.setItem("userName", userName);
     sessionStorage.setItem("room", room);
 
-    router.push(
-      `/preview?userName=${encodeURIComponent(userName)}&room=${encodeURIComponent(room)}`
-    );
+    const url = `/preview/${encodeURIComponent(room)}?username=${encodeURIComponent(userName)}`;
+    router.push(url);
   }, [userName, room, router]);
+
+
 
   const handleSubmitForm = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {

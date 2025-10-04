@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,14 +24,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRoom } from "@/hooks/useRoom";
-
-interface Message {
-  id: number;
-  sender: string;
-  text: string;
-  timestamp: Date;
-  isLocal: boolean;
-}
+import { ChatSidebar } from "./chatSideBar";
+import { useSpeechCaptions } from "@/hooks/useSpeechRecognition";
+import { Subtitles } from "lucide-react";
 
 export default function MeetingRoom() {
   const router = useRouter();
@@ -52,7 +47,16 @@ export default function MeetingRoom() {
     isVideoEnabled,
     isAudioEnabled,
     connectionState,
+    messages,
+    sendMessage,
   } = useRoom();
+
+  const {
+    captionsEnabled,
+    currentCaption,
+    toggleCaptions,
+    isSupported: captionsSupported,
+  } = useSpeechCaptions(remoteStream);
 
   // UI state
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -62,7 +66,6 @@ export default function MeetingRoom() {
   const [messageInput, setMessageInput] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { messages, sendMessage } = useRoom();
 
   // Sync UI state with actual track state
   useEffect(() => {
@@ -72,22 +75,35 @@ export default function MeetingRoom() {
     }
   }, [myStream, isVideoEnabled, isAudioEnabled]);
 
-  // Add system message when participant joins
-  // useEffect(() => {
-  //   if (remoteSocketId) {
-  //     const now = new Date();
-  //     setMessages((prev) => [
-  //       ...prev,
-  //       {
-  //         id: now.getTime(),
-  //         sender: "System",
-  //         text: `${remoteUserName} joined the meeting`,
-  //         timestamp: now,
-  //         isLocal: false,
-  //       },
-  //     ]);
-  //   }
-  // }, [remoteSocketId, remoteUserName]);
+  const pipVideoRef = useCallback(
+    (el: HTMLVideoElement | null) => {
+      if (el && myStream) {
+        el.srcObject = myStream;
+        el.play().catch((e) => console.log("PIP play error:", e));
+      }
+    },
+    [myStream]
+  );
+
+  const waitingVideoRef = useCallback(
+    (el: HTMLVideoElement | null) => {
+      if (el && myStream) {
+        // Check if stream is still active
+        const hasLiveTracks = myStream
+          .getTracks()
+          .some((t) => t.readyState === "live");
+        if (hasLiveTracks) {
+          el.srcObject = myStream;
+          el.play().catch((e) => {
+            if (e.name !== "AbortError") {
+              console.log("Waiting video play error:", e);
+            }
+          });
+        }
+      }
+    },
+    [myStream]
+  );
 
   const handleToggleVideo = () => {
     const newState = toggleVideo();
@@ -122,6 +138,13 @@ export default function MeetingRoom() {
       }
     }
   };
+
+  const handleMessageInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setMessageInput(e.target.value);
+    },
+    []
+  );
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -191,7 +214,8 @@ export default function MeetingRoom() {
               <Card className="relative w-full max-w-3xl aspect-video overflow-hidden">
                 {isVideoOn && myStream ? (
                   <video
-                    ref={myVideoRef}
+                    key="local-waiting"
+                    ref={waitingVideoRef}
                     autoPlay
                     playsInline
                     muted
@@ -276,17 +300,33 @@ export default function MeetingRoom() {
                   </div>
                 )}
 
+                {captionsEnabled && currentCaption && (
+                  <div className="absolute bottom-20 left-1/2 -translate-x-1/2 max-w-[90%] bg-black/90 text-white px-6 py-3 rounded-lg text-base backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    {currentCaption}
+                  </div>
+                )}
+
                 {/* Remote user label */}
                 <div className="absolute bottom-4 left-4 bg-background/80 backdrop-blur-sm px-3 py-1.5 rounded-lg">
                   <p className="text-sm font-medium">{remoteUserName}</p>
                 </div>
+
+                {captionsEnabled && (
+                  <div className="absolute top-4 right-4 bg-green-500/90 backdrop-blur-sm px-3 py-1.5 rounded-lg flex items-center gap-2">
+                    <Subtitles className="w-4 h-4 text-white" />
+                    <span className="text-xs font-medium text-white">
+                      Captions Active
+                    </span>
+                  </div>
+                )}
               </Card>
               {/* Local video (picture-in-picture) */}
               <Card className="w-80">
                 <Card className="relative aspect-video overflow-hidden">
                   {isVideoOn && myStream ? (
                     <video
-                      ref={myVideoRef} // Use the same ref
+                      key="local-pip"
+                      ref={pipVideoRef}
                       autoPlay
                       playsInline
                       muted
@@ -339,79 +379,13 @@ export default function MeetingRoom() {
             </div>
           )}
         </div>
-
         {/* Chat Sidebar */}
         {showChat && (
-          <div className="w-80 border-l border-border flex flex-col">
-            <div className="p-4 border-b border-border">
-              <h2 className="font-semibold">Meeting chat</h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                {remoteSocketId ? "2 participants" : "Only you"}
-              </p>
-            </div>
-
-            <ScrollArea className="flex-1 p-4">
-              {messages.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No messages yet
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        "rounded-lg p-3",
-                        message.isLocal
-                          ? "bg-primary text-primary-foreground ml-4"
-                          : message.sender === "System"
-                          ? "bg-muted/50 text-center"
-                          : "bg-muted mr-4"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-xs font-semibold">
-                          {message.sender}
-                        </p>
-                        <p className="text-[10px] opacity-70">
-                          {message.timestamp.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                      <p className="text-sm">{message.text}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-
-            <div className="p-4 border-t border-border">
-              <div className="flex gap-2">
-                <Input
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                  placeholder="Type a message..."
-                  className="flex-1"
-                  disabled={!remoteSocketId}
-                />
-                <Button
-                  size="icon"
-                  onClick={handleSendMessage}
-                  disabled={!messageInput.trim() || !remoteSocketId}
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-              {!remoteSocketId && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Chat will be available when someone joins
-                </p>
-              )}
-            </div>
-          </div>
+          <ChatSidebar
+            messages={messages}
+            onSendMessage={sendMessage}
+            remoteSocketId={remoteSocketId}
+          />
         )}
       </div>
 
@@ -462,6 +436,23 @@ export default function MeetingRoom() {
           </Button>
 
           <Button
+            variant={captionsEnabled ? "default" : "secondary"}
+            size="lg"
+            onClick={toggleCaptions}
+            disabled={!remoteStream || !captionsSupported}
+            className={cn(
+              "gap-2",
+              captionsEnabled && "bg-green-600 hover:bg-green-700"
+            )}
+            {...(!captionsSupported && {
+              title: "Captions not supported in this browser",
+            })}
+          >
+            <Subtitles className="w-5 h-5" />
+            {captionsEnabled ? "Captions On" : "Captions Off"}
+          </Button>
+
+          <Button
             variant="secondary"
             size="lg"
             onClick={toggleFullscreen}
@@ -496,7 +487,7 @@ export default function MeetingRoom() {
       </div>
 
       {/* Settings Modal */}
-      {showSettings && (
+      {/* {showSettings && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-6">
@@ -545,7 +536,7 @@ export default function MeetingRoom() {
             </div>
           </Card>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

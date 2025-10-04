@@ -88,35 +88,40 @@ class PeerService {
   reset() {
     console.log("=== RESETTING PEER CONNECTION ===");
     
-    // Remove all tracks first
-    try {
-      const senders = this.peer?.getSenders() || [];
-      senders.forEach(sender => {
-        try {
-          this.peer.removeTrack(sender);
-        } catch (e) {}
-      });
-    } catch (e) {}
-
     // Close existing peer
-    try {
-      if (this.peer) {
-        this.peer.close();
+    if (this.peer) {
+      try {
+        // Remove all event listeners
+        const events = ['icecandidate', 'track', 'connectionstatechange', 'iceconnectionstatechange', 'signalingstatechange'];
+        events.forEach(event => {
+          const listeners = this.listeners.get(event) || [];
+          listeners.forEach(fn => {
+            try {
+              this.peer.removeEventListener(event, fn as any);
+            } catch (e) {}
+          });
+        });
+        
+        // Close the connection
+        if (this.peer.connectionState !== 'closed') {
+          this.peer.close();
+        }
+      } catch (e) {
+        console.error("Error closing peer:", e);
       }
-    } catch (e) {}
+    }
 
-    // Clear state
+    // Clear all state
     this.senders = [];
-    
-    // Remove all event listeners
     this.listeners.clear();
-
-    // Create fresh peer
+    
+    // Create fresh peer connection
     this.createPeer();
     
     // Dispatch reset event
     document.dispatchEvent(new Event("peer-reset"));
-    console.log("PeerService: reset complete");
+    
+    console.log("PeerService: reset complete, new state:", this.peer.connectionState);
   }
 
   getSenders() {

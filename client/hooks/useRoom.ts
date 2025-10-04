@@ -1,90 +1,93 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useSearchParams, useParams, useRouter } from "next/navigation";
 import { useSocket } from "@/context/Socket";
 import { useMedia } from "./useMedia";
 import { useSignaling } from "./useSignaling";
 import socketService from "@/services/socket";
 import PeerService from "../services/peer";
+import { use } from "react";
 
 export const useRoom = () => {
+  const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
   const socket = useSocket();
 
   const localSocketId = socket?.id ?? null;
   
-  const getRoom = () => {
-    if (typeof window === 'undefined') return "";
-    
-    const pathParts = window.location.pathname.split('/');
-    const roomFromPath = pathParts[2];
-    if (roomFromPath) return roomFromPath;
-    
-    return searchParams.get("room") || "";
-  };
+  // Safe access to params
+  const roomIdFromUrl = typeof params?.roomId === 'string' ? params.roomId : '';
+  const usernameFromQuery = searchParams?.get("username") || '';
 
-  const getUserName = () => {
-    if (typeof window === 'undefined') return "You";
-    
-    const pathParts = window.location.pathname.split('/');
-    const userFromPath = pathParts[3];
-    if (userFromPath) return decodeURIComponent(userFromPath);
-    
-    return searchParams.get("userName") || "You";
-  };
+  const [room, setRoom] = useState<string>(() => {
+    if (roomIdFromUrl) return roomIdFromUrl;
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem("room") || "";
+    }
+    return "";
+  });
 
-  const [localUserName, setLocalUserName] = useState(getUserName());
+  const [localUserName, setLocalUserName] = useState<string>(() => {
+    if (usernameFromQuery) return usernameFromQuery;
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem("userName") || "You";
+    }
+    return "You";
+  });
   const [remoteSocketId, setRemoteSocketId] = useState<string | null>(null);
   const [remoteUserName, setRemoteUserName] = useState<string>("Remote User");
-  const [room, setRoom] = useState(getRoom());
   const hasInitiatedCall = useRef(false);
 
 
-  // Store username & room in sessionStorage on mount
+// Store in sessionStorage on mount
   useEffect(() => {
-    const userName = getUserName();
-    const roomCode = getRoom();
+    if (typeof window === "undefined") return;
 
-    if (userName !== "You" && typeof window !== 'undefined') {
-      sessionStorage.setItem("userName", userName);
-      setLocalUserName(userName);
+    if (usernameFromQuery !== "You") {
+      sessionStorage.setItem("userName", usernameFromQuery);
+      setLocalUserName(usernameFromQuery);
     }
 
-    if (roomCode && typeof window !== 'undefined') {
-      sessionStorage.setItem("room", roomCode);
-      setRoom(roomCode);
+    if (roomIdFromUrl) {
+      sessionStorage.setItem("room", roomIdFromUrl);
+      setRoom(roomIdFromUrl);
     }
-  }, []);
+  }, [usernameFromQuery, roomIdFromUrl]);
 
+  // In useRoom.ts - Replace the entire join effect with this:
   useEffect(() => {
-    if (!socket || !room || !localUserName) return;
+    if (!socket?.connected || !room || !localUserName) {
+      console.log("⏸️ Not ready to join:", { 
+        connected: socket?.connected, 
+        room, 
+        localUserName 
+      });
+      return;
+    }
 
-    let joined = false;
+    // Use a ref to track if we've joined
+    let hasJoinedThisSession = false;
 
     const joinRoom = () => {
-      if (joined) return;
-      console.log("📤 Joining room:", { room, userName: localUserName });
+      if (hasJoinedThisSession) return;
+      console.log("📤 Joining room:", { room, userName: localUserName, socketId: socket.id });
       socket.emit("room:join", { room, userName: localUserName });
-      joined = true;
+      hasJoinedThisSession = true;
     };
 
-    if (socket.connected) {
-      joinRoom();
-    } else {
-      const handleConnect = () => {
-        joinRoom();
-      };
-      socket.once("connect", handleConnect);
-      return () => socket.off("connect", handleConnect);
-    }
-    
-    // Cleanup on unmount - leave the room
+    // Small delay to prevent rapid join/leave cycles
+    const timeoutId = setTimeout(joinRoom, 100);
+
+    // Cleanup only on unmount (component removal), not on re-renders
     return () => {
-      if (joined && socket) {
+      clearTimeout(timeoutId);
+      // Only emit leave if we actually joined
+      if (hasJoinedThisSession && socket?.connected) {
+        console.log("👋 Leaving room on unmount:", room);
         socket.emit("leave:room", { room });
       }
     };
-  }, [socket, room, localUserName]);
+  }, [socket?.id, room, localUserName]); 
   
   // Media hook with router passed
   const media = useMedia({
@@ -149,64 +152,63 @@ export const useRoom = () => {
 
   // AUTO-CALL: automatically initiate call if conditions are met
   useEffect(() => {
-    // Add localSocketId to the conditions
     if (
-      hasInitiatedCall ||
+      hasInitiatedCall.current ||
       !remoteSocketId ||
-      !localSocketId || // Ensure we have our own ID
+      !localSocketId ||
       !media.myStream ||
       !handleCallUser
     ) {
       return;
     }
 
-    // Don't auto-call if remote stream already exists (call in progress)
+    // Check if remote stream already exists
     if (media.remoteStream) {
       return;
     }
 
-    const peerState = PeerService.getPeer()?.connectionState;
-    if (
-      peerState === "connecting" ||
-      peerState === "connected" ||
-      media.remoteStream
-    ) {
+    // IMPORTANT: Check peer state - only call if "new"
+    const peer = PeerService.getPeer();
+    const peerState = peer?.connectionState;
+    
+    console.log("AUTO-CALL check - peer state:", peerState);
+    
+    if (peerState !== "new") {
+      console.log("Peer not in 'new' state, skipping call. State:", peerState);
       return;
     }
 
-    // --- THIS IS THE FIX ---
-    // Only the user with the "smaller" socket ID will initiate the call.
-    // This prevents both users from calling each other at the same time.
+    // Determine who calls
     const amITheCaller = localSocketId < remoteSocketId;
-        console.log(`Deciding who calls. My ID: ${localSocketId}, Remote ID: ${remoteSocketId}. Am I the caller? ${amITheCaller}`);
+    console.log(`Deciding who calls. My ID: ${localSocketId}, Remote ID: ${remoteSocketId}. Am I caller? ${amITheCaller}`);
 
-        if (amITheCaller) {
-            console.log("🚀 I am the designated caller. Auto-initiating call...");
-            
-            // UPDATE THIS: Set the ref's .current property
-            hasInitiatedCall.current = true; 
+    if (amITheCaller) {
+      console.log("🚀 I am the designated caller. Auto-initiating call...");
+      hasInitiatedCall.current = true;
 
-            const timer = setTimeout(() => {
-                handleCallUser();
-            }, 500);
+      const timer = setTimeout(() => {
+        handleCallUser();
+      }, 500);
 
-            return () => clearTimeout(timer);
-        } else {
-            console.log("📞 I am the designated receiver. Waiting for incoming call.");
-        }
+      return () => clearTimeout(timer);
+    } else {
+      console.log("📞 I am the designated receiver. Waiting for incoming call.");
+    }
   }, [
     remoteSocketId,
-    localSocketId, // Add localSocketId to dependency array
+    localSocketId,
     media.myStream,
     media.remoteStream,
-    // hasInitiatedCall,
     handleCallUser,
   ]);
 
-  // // Reset call flag when remote leaves
-  // useEffect(() => {
-  //   if (!remoteSocketId) setHasInitiatedCall(false);
-  // }, [remoteSocketId]);
+  useEffect(() => {
+  if (!remoteSocketId) {
+    // Remote left, reset call flag
+    hasInitiatedCall.current = false;
+    console.log("Remote left, reset hasInitiatedCall flag");
+  }
+}, [remoteSocketId]);
 
   // Handle page reload/close with confirmation
   useEffect(() => {
@@ -220,7 +222,7 @@ export const useRoom = () => {
           if (remoteSocketId) {
             socket.emit("call:end", { to: remoteSocketId });
           }
-          socket.emit("leave:room", { room });
+          socket.emit("leave:room");
         }
 
         if (media.myStream) {
@@ -241,7 +243,9 @@ export const useRoom = () => {
 
   // Handle browser back button
   useEffect(() => {
+    // Prevent back button
     const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
       const confirmLeave = window.confirm(
         "Are you sure you want to go back? Your call will be ended."
       );
@@ -249,17 +253,19 @@ export const useRoom = () => {
       if (confirmLeave) {
         media.endCall();
       } else {
-        window.history.pushState(null, "", window.location.pathname);
+        // Push forward instead of staying on same page
+        window.history.go(1);
       }
     };
 
-    window.history.pushState(null, "", window.location.pathname);
+    // Only push state once on mount
+    window.history.pushState(null, "", window.location.href);
     window.addEventListener("popstate", handlePopState);
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [media]);
+  }, []); // Empty deps - only run once on mount
 
     // Add state for messages
   const [messages, setMessages] = useState<Array<{
@@ -309,8 +315,20 @@ export const useRoom = () => {
     });
   }, [socket, room, localUserName]);
 
+  // In useRoom.tsx
+  const clearChat = useCallback(() => {
+    setMessages([]);
+  }, []);
+
+  // Update endCall to call clearChat
+  useEffect(() => {
+    if (!remoteSocketId) {
+      clearChat(); // Clear messages when remote leaves
+    }
+  }, [remoteSocketId, clearChat]);
+
   return {
-    getUserName,
+    usernameFromQuery,
     localUserName,
     setLocalUserName,
     remoteUserName,
@@ -322,6 +340,7 @@ export const useRoom = () => {
     setRoom,
     messages,
     sendMessage,
+    clearChat,
     // media API
     myStream: media.myStream,
     setMyStream: media.setMyStream,

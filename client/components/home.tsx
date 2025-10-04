@@ -44,11 +44,10 @@ export default function Home() {
   const handleCreateMeeting = () => {
     if (userName.trim()) {
       const randomCode = Math.random().toString(36).substring(2, 10);
-      router.push(
-        `/preview?userName=${encodeURIComponent(
-          userName
-        )}&room=${encodeURIComponent(randomCode)}&action=create`
-      );
+      const url = `/preview/${encodeURIComponent(
+        randomCode
+      )}?username=${encodeURIComponent(userName)}&action=create`;
+      router.push(url);
     }
   };
 
