@@ -87,10 +87,8 @@ const PreviewPageClient: React.FC = () => {
     // Cleanup on unmount - use the local stream variable
     return () => {
       if (stream) {
-        console.log("Stopping all tracks on cleanup...");
         stream.getTracks().forEach((track) => {
           track.stop();
-          console.log(`Stopped ${track.kind} track`);
         });
       }
     };
@@ -129,10 +127,6 @@ const PreviewPageClient: React.FC = () => {
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
         setVideoEnabled(videoTrack.enabled);
-
-        console.log(
-          `Video track ${videoTrack.enabled ? "enabled" : "disabled"}`
-        );
       }
     }
   };
@@ -143,9 +137,6 @@ const PreviewPageClient: React.FC = () => {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setAudioEnabled(audioTrack.enabled);
-        console.log(
-          `Audio track ${audioTrack.enabled ? "enabled" : "disabled"}`
-        );
       }
     }
   };
@@ -164,8 +155,6 @@ const PreviewPageClient: React.FC = () => {
       sessionStorage.setItem("audioEnabled", String(audioEnabled));
     }
 
-    console.log("Navigating to room with:", { room, userName }); // Add this debug log
-
     // Make sure userName is not empty
     const finalUserName = userName || "You";
     router.push(
@@ -176,11 +165,9 @@ const PreviewPageClient: React.FC = () => {
   };
 
   const handleBack = () => {
-    console.log("Back button clicked - stopping tracks...");
     if (previewStream) {
       previewStream.getTracks().forEach((track) => {
         track.stop();
-        console.log(`Stopped ${track.kind} track in handleBack`);
       });
       setPreviewStream(null);
     }

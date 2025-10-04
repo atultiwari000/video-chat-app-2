@@ -129,7 +129,6 @@ export const useMedia = ({
       socket.emit("call:end", { to: remoteSocketId });
     }
     if (socket && room) {
-      console.log("Emitting leave:room with:", room);
       socket.emit("leave:room");
     }
 
@@ -211,12 +210,10 @@ export const useMedia = ({
   useEffect(() => {
     const setupListeners = () => {
       const handleConnectionChange = () => {
-        console.log("React detected connection state change:", PeerService.peer.connectionState);
         setConnectionState(PeerService.peer.connectionState);
       };
 
       const handleIceConnectionChange = () => {
-        console.log("React detected ICE connection state change:", PeerService.peer.iceConnectionState);
         setIceConnectionState(PeerService.peer.iceConnectionState);
       };
 
@@ -232,7 +229,6 @@ export const useMedia = ({
     let cleanup = setupListeners();
 
     const handlePeerReset = () => {
-      console.log("Peer has been reset, re-attaching listeners.");
       cleanup();
       cleanup = setupListeners();
     };

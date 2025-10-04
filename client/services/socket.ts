@@ -5,11 +5,9 @@ class SocketService {
 
   connect(): Socket {
     if (this.socket) {
-      console.log("SocketService: Reusing existing socket");
       return this.socket;
     }
 
-    console.log("SocketService: Creating new socket");
     this.socket = io("http://localhost:8000", {
       transports: ["websocket", "polling"],
       reconnection: true,
@@ -18,7 +16,6 @@ class SocketService {
     });
 
     this.socket.on("connect", () => {
-      console.log("SocketService: Socket connected", this.socket?.id);
     });
 
     this.socket.on("connect_error", (err) => {

@@ -154,7 +154,6 @@ export const useSpeechCaptions = (remoteStream: MediaStream | null) => {
       recognitionRef.current = recognition;
 
       recognition.start();
-      console.log('Speech recognition started');
     } catch (error) {
       console.error('Error starting speech recognition:', error);
     }
@@ -191,7 +190,6 @@ export const useSpeechCaptions = (remoteStream: MediaStream | null) => {
     }
 
     setCurrentCaption('');
-    console.log('Speech recognition stopped');
   }, [clearSilenceTimeout]);
 
   const toggleCaptions = useCallback(() => {

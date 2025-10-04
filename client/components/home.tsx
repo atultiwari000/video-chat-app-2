@@ -30,7 +30,6 @@ export default function Home() {
   // const [userName, setUsername] = useState("");
   // const [room, setRoom] = useState("");
   const router = useRouter();
-  console.log("useSocket() value:", useSocket()); // put this inside Home component and check console
 
   const handleJoinMeeting = () => {
     if (userName.trim() && room.trim()) {

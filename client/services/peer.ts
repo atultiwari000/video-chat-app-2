@@ -18,13 +18,10 @@ class PeerService {
     });
 
     this.peer.addEventListener("iceconnectionstatechange", () => {
-      console.log("Peer ICE state:", this.peer.iceConnectionState);
     });
     this.peer.addEventListener("connectionstatechange", () => {
-      console.log("Peer connection state:", this.peer.connectionState);
     });
     this.peer.addEventListener("signalingstatechange", () => {
-      console.log("Peer signaling state:", this.peer.signalingState);
     });
   }
 
@@ -86,7 +83,6 @@ class PeerService {
 
   // -- Reset connection --
   reset() {
-    console.log("=== RESETTING PEER CONNECTION ===");
     
     // Close existing peer
     if (this.peer) {
@@ -121,7 +117,6 @@ class PeerService {
     // Dispatch reset event
     document.dispatchEvent(new Event("peer-reset"));
     
-    console.log("PeerService: reset complete, new state:", this.peer.connectionState);
   }
 
   getSenders() {

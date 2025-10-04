@@ -18,12 +18,10 @@ const disconnectTimers = new Map();
 const roomMessages = new Map(); 
 
 io.on('connection', (socket) => {
-    console.log('New socket connected:', socket.id);
     
     socket.on("room:join", ({ room, userName }) => {
         const cleanRoom = String(room).trim();
         
-        console.log(`➡️ ${userName} (${socket.id}) joining room: [${cleanRoom}] (length: ${cleanRoom.length})`);
         
         // Store validated room
         socket.data.userName = userName;
@@ -43,7 +41,6 @@ io.on('connection', (socket) => {
             }
         });
 
-        console.log(`👥 Users in room [${room}]:`, usersInRoom.map(u => u.userName));
         
         // 1. Tell the user who just joined about the others already in the room
         socket.emit("room:joined", { users: usersInRoom });
@@ -61,11 +58,9 @@ io.on('connection', (socket) => {
     const userName = socket.data.userName;
     
     if (!room || !userName) {
-        console.log(`⚠️ Skipping leave - already left or never joined`);
         return;
     }
     
-    console.log(`⬅️ ${userName} (${socket.id}) disconnected (${reason}) from room: ${room}`);
 
     socket.to(room).emit("user:left", { id: socket.id, userName });
     socket.leave(room);
@@ -83,10 +78,8 @@ io.on('connection', (socket) => {
         const room = socket.data.room;
         const userName = socket.data.userName;
         
-        console.log(`⬅️ Attempting leave - stored room: [${room}] (length: ${room?.length})`);
         
         if (!room || !userName) {
-            console.log(`⚠️ Skipping leave - room: ${room}, userName: ${userName}`);
             return;
         }
         
@@ -95,13 +88,11 @@ io.on('connection', (socket) => {
 
     // Call signaling
     socket.on("user:call", ({ to, offer, userName }) => {
-    console.log(`Call from ${socket.id} (${userName}) to ${to}`);
     io.to(to).emit("incoming:call", { from: socket.id, offer, userName });
     });
 
     socket.on("call:accepted", ({ to, ans, userName }) => {
     // Use the userName passed from client, not from map
-    console.log(`Call accepted from ${socket.id} (${userName || socket.data.userName}) to ${to}`);
     io.to(to).emit("call:accepted", { 
         from: socket.id, 
         ans, 
@@ -111,12 +102,10 @@ io.on('connection', (socket) => {
 
     // Peer negotiation signaling
     socket.on("peer:nego:needed", ({ to, offer }) => {
-        console.log(`Negotiation needed from ${socket.id} to ${to}`);
         io.to(to).emit("peer:nego:needed", { from: socket.id, offer });
     });
 
     socket.on("peer:nego:done", ({ to, ans }) => {
-        console.log(`Negotiation done from ${socket.id} to ${to}`);
         io.to(to).emit("peer:nego:final", { from: socket.id, ans });
     });
 
@@ -130,14 +119,12 @@ io.on('connection', (socket) => {
 
     // Handle call end
     socket.on("call:end", ({ to }) => {
-        console.log(`Call ended by ${socket.id}`);
         if (to) {
             io.to(to).emit("call:ended", { from: socket.id });
         }
     });
 
     socket.on("chat:message", ({ room, message, userName }) => {
-    console.log(`Chat message in room ${room} from ${userName}`);
     
     // Store in memory
     if (!roomMessages.has(room)) {
@@ -156,36 +143,9 @@ io.on('connection', (socket) => {
     // Broadcast to everyone in the room (including sender)
     io.to(room).emit("chat:message", messageData);
     });
-
-    // Clean up room messages when room becomes empty
-    // socket.on("leave:room", ({ room }) => {
-    // const roomToLeave = room || socket.currentRoom;
-    
-    // if (roomToLeave) {
-    //     console.log(`${socket.userName} explicitly leaving room ${roomToLeave}`);
-        
-    //     socket.to(roomToLeave).emit("user:left", { 
-    //         id: socket.id,
-    //         userName: socket.userName 
-    //     });
-        
-    //     socket.leave(roomToLeave);
-    //     socket.currentRoom = null;
-        
-    //     // Check if room is now empty
-    //     const roomSockets = io.sockets.adapter.rooms.get(roomToLeave);
-    //     if (!roomSockets || roomSockets.size === 0) {
-    //         // Room is empty - delete messages
-    //         roomMessages.delete(roomToLeave);
-    //         console.log(`Room ${roomToLeave} is empty. Messages deleted.`);
-    //     }
-    // }
-    // });
 });
 
 // Handle server errors
 io.engine.on("connection_error", (err) => {
-    console.log('Connection error:', err.req, err.code, err.message, err.context);
+    // console.log('Connection error:', err.req, err.code, err.message, err.context);
 });
-
-console.log('Socket.io server running on port 8000');

@@ -26,7 +26,6 @@ export const useSignaling = (opts: {
       if (!c) continue;
       try {
         await PeerService.addIceCandidate(c);
-        console.log("Queued ICE candidate added");
       } catch (err) {
         console.error("Error adding queued ICE candidate:", err);
       }
@@ -35,13 +34,11 @@ export const useSignaling = (opts: {
 
     // Add this new handler near the top with other handlers
   const handleRoomJoined = useCallback(({ users }: any) => {
-    console.log("Room joined, existing users:", users);
     
     // Find other user in the room (not yourself)
     const otherUser = users?.find((u: any) => u.id !== socket?.id);
     
     if (otherUser) {
-      console.log("Found existing user in room:", otherUser);
       setRemoteSocketId(otherUser.id);
       setRemoteUserName(otherUser.userName);
       hasInitiatedCall.current = false;
@@ -50,7 +47,6 @@ export const useSignaling = (opts: {
 
   // Handle user joined
   const handleUserJoined = useCallback(({ userName, id }: any) => {
-    console.log("User joined:", userName, id);
     setRemoteSocketId(id);
     setRemoteUserName(userName);
     hasInitiatedCall.current = false;
@@ -76,7 +72,6 @@ export const useSignaling = (opts: {
 
       PeerService.addLocalStream(stream);
       const offer = await PeerService.getOffer();
-      console.log("Emitting user:call to", remoteSocketId);
       socket?.emit("user:call", { to: remoteSocketId, offer, userName: localUserName });
     } catch (err) {
       console.error("Error in handleCallUser:", err);
@@ -94,7 +89,6 @@ export const useSignaling = (opts: {
     }
 
     const signalingState = PeerService.getPeer().signalingState;
-    console.log("Incoming call - current signaling state:", signalingState);
 
     try {
       isProcessingCall.current = true;
@@ -126,11 +120,9 @@ export const useSignaling = (opts: {
   // Call accepted by remote (offerer receives answer)
   const handleCallAccepted = useCallback(async ({ from, ans, userName }: any) => {
     const signalingState = PeerService.getPeer().signalingState;
-    console.log("Call accepted - current signaling state:", signalingState);
     
     // If already stable, the call is already established - ignore
     if (signalingState === "stable") {
-      console.log("Already in stable state, ignoring duplicate call acceptance");
       return;
     }
 
@@ -152,7 +144,6 @@ export const useSignaling = (opts: {
   // Handle remote track events
   useEffect(() => {
     const onTrackHandler = (ev: RTCTrackEvent) => {
-      console.log("PeerService track event:", ev.track.kind);
       if (ev.streams && ev.streams[0]) {
         setRemoteStream(ev.streams[0]);
       } else {
@@ -202,12 +193,10 @@ export const useSignaling = (opts: {
     if (!candidate) return;
     if (!isRemoteDescriptionSet.current) {
       iceCandidateQueue.current.push(candidate);
-      console.log("Queued remote ICE candidate (waiting for remote desc)");
       return;
     }
     try {
       await PeerService.addIceCandidate(candidate);
-      console.log("Added remote ICE candidate immediately");
     } catch (err) {
       console.error("Error adding remote ICE candidate:", err);
     }
@@ -215,7 +204,6 @@ export const useSignaling = (opts: {
 
   // FIXED: Cleanup function for when user leaves/disconnects
   const cleanupRemoteConnection = useCallback(() => {
-    console.log("=== CLEANING UP REMOTE CONNECTION ===");
     
     // Step 1: Clear all refs immediately
     isRemoteDescriptionSet.current = false;
@@ -232,7 +220,6 @@ export const useSignaling = (opts: {
     try {
       const peer = PeerService.getPeer();
       if (peer) {
-        console.log("Closing peer, current state:", peer.connectionState);
         
         // Remove all tracks first
         const senders = peer.getSenders();
@@ -244,7 +231,6 @@ export const useSignaling = (opts: {
         
         // Close the connection (this sets state to "closed")
         peer.close();
-        console.log("Peer closed, state:", peer.connectionState);
       }
     } catch (e) {
       console.error("Error during peer cleanup:", e);
@@ -255,14 +241,11 @@ export const useSignaling = (opts: {
     
     // Step 5: Verify new peer state
     const newPeer = PeerService.getPeer();
-    console.log("New peer created, state:", newPeer.connectionState);
     
-    console.log("=== CLEANUP COMPLETE ===");
   }, [setRemoteUserName, setRemoteStream, setRemoteSocketId]);
 
   // Handle user left (explicit leave)
   const handleUserLeft = useCallback(({ id }: any) => {
-    console.log("=== USER LEFT ===", id);
     if (id === remoteSocketId) {
       cleanupRemoteConnection();
     }
@@ -270,7 +253,6 @@ export const useSignaling = (opts: {
 
   // Handle user disconnected (unexpected disconnect)
   const handleUserDisconnected = useCallback(({ id }: any) => {
-    console.log("=== USER DISCONNECTED ===", id);
     if (id === remoteSocketId) {
       cleanupRemoteConnection();
     }
@@ -278,21 +260,10 @@ export const useSignaling = (opts: {
 
   // Handle call ended by remote
   const handleCallEnded = useCallback(({ from }: any) => {
-    console.log("=== CALL ENDED BY REMOTE ===", from);
     if (from === remoteSocketId) {
       cleanupRemoteConnection();
     }
   }, [remoteSocketId, cleanupRemoteConnection]);
-
-  //   useEffect(() => {
-  //   return () => {
-  //     // Cleanup on unmount
-  //     isRemoteDescriptionSet.current = false;
-  //     iceCandidateQueue.current = [];
-  //     hasInitiatedCall.current = false;
-  //     isProcessingCall.current = false;
-  //   };
-  // }, []);
 
   // Socket event listeners
   useEffect(() => {
@@ -303,8 +274,8 @@ export const useSignaling = (opts: {
     socket.on("incoming:call", handleIncomingCall);
     socket.on("call:accepted", handleCallAccepted);
     socket.on("ice:candidate", handleIncomingIceCandidate);
-    // socket.on("peer:nego:needed", handleNegoNeeded); // Assuming you have this handler
-    // socket.on("peer:nego:final", handleNegoFinal); // Assuming you have this handler
+    // socket.on("peer:nego:needed", handleNegoNeeded); 
+    // socket.on("peer:nego:final", handleNegoFinal); 
     socket.on("call:ended", handleCallEnded);
     socket.on("user:disconnected", handleUserDisconnected);
     socket.on("user:left", handleUserLeft);
@@ -334,22 +305,6 @@ export const useSignaling = (opts: {
     // handleNegoFinal,
     handleIncomingIceCandidate,
   ]);
-
-  // // Auto-initiate call when appropriate
-  // useEffect(() => {
-  //   const shouldInitiate =
-  //     myStream &&
-  //     myStream.getTracks().length > 0 &&
-  //     myStream.getTracks().every((t) => t.readyState === "live") &&
-  //     remoteSocketId &&
-  //     !hasInitiatedCall.current &&
-  //     !isProcessingCall.current;
-
-  //   if (shouldInitiate) {
-  //     console.log("Auto-initiating call because conditions satisfied");
-  //     handleCallUser();
-  //   }
-  // }, [myStream, remoteSocketId, handleCallUser]);
 
   return {
     handleCallUser,

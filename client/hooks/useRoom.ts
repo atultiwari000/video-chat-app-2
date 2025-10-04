@@ -57,11 +57,7 @@ export const useRoom = () => {
   // In useRoom.ts - Replace the entire join effect with this:
   useEffect(() => {
     if (!socket?.connected || !room || !localUserName) {
-      console.log("⏸️ Not ready to join:", { 
-        connected: socket?.connected, 
-        room, 
-        localUserName 
-      });
+      
       return;
     }
 
@@ -70,7 +66,6 @@ export const useRoom = () => {
 
     const joinRoom = () => {
       if (hasJoinedThisSession) return;
-      console.log("📤 Joining room:", { room, userName: localUserName, socketId: socket.id });
       socket.emit("room:join", { room, userName: localUserName });
       hasJoinedThisSession = true;
     };
@@ -83,7 +78,6 @@ export const useRoom = () => {
       clearTimeout(timeoutId);
       // Only emit leave if we actually joined
       if (hasJoinedThisSession && socket?.connected) {
-        console.log("👋 Leaving room on unmount:", room);
         socket.emit("leave:room", { room });
       }
     };
@@ -128,16 +122,12 @@ export const useRoom = () => {
 
       if (socket && !media.myStream) {
         try {
-          console.log("Auto-starting media with preferences:", {
-            videoEnabled,
-            audioEnabled,
-          });
+          
           const stream = await navigator.mediaDevices.getUserMedia({
             video: videoEnabled,
             audio: audioEnabled,
           });
           media.setMyStream(stream);
-          console.log("Media auto-started successfully");
         } catch (error) {
           console.error("Error auto-starting media:", error);
         }
@@ -171,19 +161,15 @@ export const useRoom = () => {
     const peer = PeerService.getPeer();
     const peerState = peer?.connectionState;
     
-    console.log("AUTO-CALL check - peer state:", peerState);
     
     if (peerState !== "new") {
-      console.log("Peer not in 'new' state, skipping call. State:", peerState);
       return;
     }
 
     // Determine who calls
     const amITheCaller = localSocketId < remoteSocketId;
-    console.log(`Deciding who calls. My ID: ${localSocketId}, Remote ID: ${remoteSocketId}. Am I caller? ${amITheCaller}`);
 
     if (amITheCaller) {
-      console.log("🚀 I am the designated caller. Auto-initiating call...");
       hasInitiatedCall.current = true;
 
       const timer = setTimeout(() => {
@@ -192,7 +178,6 @@ export const useRoom = () => {
 
       return () => clearTimeout(timer);
     } else {
-      console.log("📞 I am the designated receiver. Waiting for incoming call.");
     }
   }, [
     remoteSocketId,
@@ -206,7 +191,6 @@ export const useRoom = () => {
   if (!remoteSocketId) {
     // Remote left, reset call flag
     hasInitiatedCall.current = false;
-    console.log("Remote left, reset hasInitiatedCall flag");
   }
 }, [remoteSocketId]);
 
@@ -280,7 +264,6 @@ export const useRoom = () => {
     if (!socket) return;
 
     const handleChatMessage = (data: any) => {
-      console.log("📨 Received chat message:", data);
       setMessages((prev) => {
         // Prevent duplicates by checking if message already exists
         const exists = prev.some(msg => msg.id === data.id);
