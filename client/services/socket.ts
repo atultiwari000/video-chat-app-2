@@ -8,7 +8,7 @@ class SocketService {
       return this.socket;
     }
 
-    this.socket = io("http://localhost:8000", {
+    this.socket = io(process.env.NEXT_PUBLIC_BACKEND_URL!, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 5,

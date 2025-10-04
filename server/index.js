@@ -2,15 +2,15 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const { Server } = require('socket.io');
 
-const io = new Server(8000, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
-});
-
 const app = express();
+const server = createServer(app);
 app.use(bodyParser.json());
+const io = new Server(server, {
+  cors: {
+    origin: "*", 
+    methods: ["GET", "POST"]
+  }
+});
 
 const userToSocketIdMap = new Map();
 const socketIdToUserMap = new Map();
@@ -179,4 +179,7 @@ io.engine.on("connection_error", (err) => {
     console.error('Connection error:', err.code, err.message);
 });
 
-console.log('Socket.io server running on port 8000');
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
