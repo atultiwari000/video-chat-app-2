@@ -65,11 +65,24 @@ const PreviewPageClient: React.FC = () => {
             }
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error accessing media devices:", error);
-        setPermissionError(
-          "Unable to access camera/microphone. Please check permissions."
-        );
+        console.error("Error name:", error.name);
+        console.error("Error message:", error.message);
+
+        let errorMsg = "Unable to access camera/microphone.";
+
+        if (error.name === "NotAllowedError") {
+          errorMsg =
+            "Camera/microphone access denied. Please allow permissions in browser settings.";
+        } else if (error.name === "NotFoundError") {
+          errorMsg = "No camera or microphone found on this device.";
+        } else if (error.name === "NotReadableError") {
+          errorMsg =
+            "Camera or microphone is already in use by another application.";
+        }
+
+        setPermissionError(errorMsg);
       } finally {
         setIsLoading(false);
       }
