@@ -70,7 +70,7 @@ class PeerService {
       await this.getPeer(); // Ensure peer exists
       await this.peer.setRemoteDescription(new RTCSessionDescription(answer));
     } catch (err) {
-      console.warn("setRemoteAnswer failed — state:", this.peer?.signalingState, err);
+      // console.warn("setRemoteAnswer failed — state:", this.peer?.signalingState, err);
       throw err;
     }
   }
@@ -188,7 +188,7 @@ class PeerService {
         if (s) this.senders.push(s);
       }
     } catch (err) {
-      console.warn("replace/add audio sender failed:", err);
+      // console.warn("replace/add audio sender failed:", err);
     }
 
     // Replace or add video
@@ -201,7 +201,7 @@ class PeerService {
         if (s) this.senders.push(s);
       }
     } catch (err) {
-      console.warn("replace/add video sender failed:", err);
+      // console.warn("replace/add video sender failed:", err);
     }
 
     return this.peer.getSenders?.() || [];

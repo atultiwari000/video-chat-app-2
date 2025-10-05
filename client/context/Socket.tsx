@@ -33,7 +33,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const onDisconnect = (reason: string) => {
-      console.log("Disconnected:", reason);
+      // console.log("Disconnected:", reason);
       setConnectionStatus("disconnected");
     };
 
@@ -84,15 +84,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         >
           {connectionStatus === "connecting" && (
             <>
-              🔄 Connecting to server
+              Connecting to server
               {retryCount > 0 ? ` (attempt ${retryCount})` : ""}...
             </>
           )}
           {connectionStatus === "error" && (
-            <>❌ Connection failed. Retrying... (attempt {retryCount})</>
+            <>Connection failed. Retrying... (attempt {retryCount})</>
           )}
           {connectionStatus === "disconnected" && (
-            <>⚠️ Disconnected from server. Reconnecting...</>
+            <>Disconnected from server. Reconnecting...</>
           )}
         </div>
       )}

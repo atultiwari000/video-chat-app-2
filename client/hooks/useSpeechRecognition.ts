@@ -72,7 +72,7 @@ export const useSpeechCaptions = (remoteStream: MediaStream | null) => {
 
   const startCaptions = useCallback(() => {
     if (!isSupported || !remoteStream) {
-      console.warn('Speech recognition not supported or no remote stream');
+      // console.warn('Speech recognition not supported or no remote stream');
       return;
     }
 

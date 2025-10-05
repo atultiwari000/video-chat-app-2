@@ -76,7 +76,7 @@ export const useSignaling = (opts: {
   const handleCallUser = useCallback(async () => {
     if (isProcessingCall.current || hasInitiatedCall.current) return;
     if (!remoteSocketId) {
-      console.warn("No remoteSocketId, cannot call");
+      // console.warn("No remoteSocketId, cannot call");
       return;
     }
 
@@ -202,7 +202,7 @@ export const useSignaling = (opts: {
         if (ev.streams && ev.streams[0]) {
           setRemoteStream(ev.streams[0]);
         } else {
-          console.warn("Track event had no streams");
+          // console.warn("Track event had no streams");
         }
       };
 

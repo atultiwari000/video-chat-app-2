@@ -38,13 +38,11 @@ class SocketService {
 
     this.socket.on("connect_error", (err) => {
       this.connectionAttempts++;
-      console.error(`❌ Socket connection error (attempt ${this.connectionAttempts}/${this.maxAttempts}):`, err.message);
+      // console.error(`Socket connection error (attempt ${this.connectionAttempts}/${this.maxAttempts}):`, err.message);
       
       if (this.connectionAttempts >= this.maxAttempts) {
-        console.error("Max connection attempts reached. Please check:");
-        console.error("1. Backend server is running");
-        console.error("2. CORS is properly configured on backend");
-        console.error("3. No firewall blocking the connection");
+        console.error("Max connection attempts reached.");
+      
       }
     });
 
