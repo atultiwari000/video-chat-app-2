@@ -5,6 +5,7 @@ import { createServer } from "http";
 import bodyParser from "body-parser";
 import { Server } from "socket.io";
 import twilio from "twilio";
+import cors from "cors";
 
 const app = express();
 const server = createServer(app);
@@ -16,6 +17,16 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 // console.log(accountSid, authToken);
 const client = twilio(accountSid, authToken);
+
+// Allow your Vercel frontend to access your server
+app.use(cors({
+  origin: [
+    "https://video-chat-app-2-green.vercel.app", // your frontend
+    "http://localhost:5173" // local testing
+  ],
+  methods: ["GET", "POST"],
+  credentials: true,
+}));
 
 const allowedOrigins = [
     "https://video-chat-app-2-ki3scrodu-atultiwari000s-projects.vercel.app",
