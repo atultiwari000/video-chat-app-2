@@ -26,12 +26,19 @@ export const useMedia = ({
   const myVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
-  const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>(
-    () => PeerService.getPeer()?.connectionState ?? "new"
-  );
-  const [iceConnectionState, setIceConnectionState] = useState<RTCIceConnectionState>(
-    () => PeerService.getPeer()?.iceConnectionState ?? "new"
-  );
+  const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
+  const [iceConnectionState, setIceConnectionState] = useState<RTCIceConnectionState>("new");
+
+  useEffect(() => {
+    const setInitialState = async () => {
+      const peer = await PeerService.getPeer();
+      if (peer) {
+        setConnectionState(peer.connectionState);
+        setIceConnectionState(peer.iceConnectionState);
+      }
+    };
+    setInitialState();
+  }, []);
 
   // Attach myStream to local video element
   useEffect(() => {
@@ -91,30 +98,44 @@ export const useMedia = ({
 
   // Listen to PeerService connection state changes
   useEffect(() => {
-    const attach = () => {
-      const removeConn = PeerService.onConnectionStateChange?.(() => {
-        try {
-          setConnectionState(PeerService.getPeer().connectionState);
-          setIceConnectionState(PeerService.getPeer().iceConnectionState);
-        } catch (e) {}
-      });
-      return () => {
-        if (removeConn) removeConn();
+    let cleanup = () => {};
+
+    const attachListeners = async () => {
+      const peer = await PeerService.getPeer(); // wait until peer exists
+      if (!peer) return;
+
+      const handleConnectionChange = () => {
+        setConnectionState(peer.connectionState);
+      };
+
+      const handleIceConnectionChange = () => {
+        setIceConnectionState(peer.iceConnectionState);
+      };
+
+      peer.addEventListener('connectionstatechange', handleConnectionChange);
+      peer.addEventListener('iceconnectionstatechange', handleIceConnectionChange);
+
+      cleanup = () => {
+        peer.removeEventListener('connectionstatechange', handleConnectionChange);
+        peer.removeEventListener('iceconnectionstatechange', handleIceConnectionChange);
       };
     };
 
-    let cleanup = attach();
-    const onReset = () => {
+    attachListeners();
+
+    const handlePeerReset = () => {
       cleanup();
-      cleanup = attach();
+      attachListeners();
     };
-    document.addEventListener("peer-reset", onReset);
+
+    document.addEventListener('peer-reset', handlePeerReset);
 
     return () => {
       cleanup();
-      document.removeEventListener("peer-reset", onReset);
+      document.removeEventListener('peer-reset', handlePeerReset);
     };
   }, []);
+
 
   const endCall = useCallback(() => {
     const roomToLog = room || 'undefined';
@@ -195,13 +216,13 @@ export const useMedia = ({
         myStream.addTrack(newVideoTrack);
         
         // Add to peer connection and trigger renegotiation
-        const peer = PeerService.getPeer();
+        const peer = await PeerService.getPeer();
         if (peer && peer.connectionState !== 'closed' && remoteSocketId) {
           // Add track to peer
           peer.addTrack(newVideoTrack, myStream);
           
           // Create new offer to renegotiate
-          const offer = await peer.createOffer();
+          const offer = await (await peer).createOffer();
           await peer.setLocalDescription(offer);
           
           // Send new offer to remote peer
@@ -263,7 +284,7 @@ export const useMedia = ({
         myStream.addTrack(newAudioTrack);
         
         // Add to peer connection and trigger renegotiation
-        const peer = PeerService.getPeer();
+        const peer = await PeerService.getPeer();
         if (peer && peer.connectionState !== 'closed' && remoteSocketId) {
           // Add track to peer
           peer.addTrack(newAudioTrack, myStream);
@@ -322,39 +343,39 @@ export const useMedia = ({
     }
   }, []);
 
-  useEffect(() => {
-    const setupListeners = () => {
-      const handleConnectionChange = () => {
-        setConnectionState(PeerService.peer.connectionState);
-      };
+  // useEffect(() => {
+  //   const setupListeners = () => {
+  //     const handleConnectionChange = () => {
+  //       setConnectionState(PeerService.peer.connectionState);
+  //     };
 
-      const handleIceConnectionChange = () => {
-        setIceConnectionState(PeerService.peer.iceConnectionState);
-      };
+  //     const handleIceConnectionChange = () => {
+  //       setIceConnectionState(PeerService.peer.iceConnectionState);
+  //     };
 
-      PeerService.peer.addEventListener('connectionstatechange', handleConnectionChange);
-      PeerService.peer.addEventListener('iceconnectionstatechange', handleIceConnectionChange);
+  //     PeerService.peer.addEventListener('connectionstatechange', handleConnectionChange);
+  //     PeerService.peer.addEventListener('iceconnectionstatechange', handleIceConnectionChange);
 
-      return () => {
-        PeerService.peer.removeEventListener('connectionstatechange', handleConnectionChange);
-        PeerService.peer.removeEventListener('iceconnectionstatechange', handleIceConnectionChange);
-      };
-    };
+  //     return () => {
+  //       PeerService.peer.removeEventListener('connectionstatechange', handleConnectionChange);
+  //       PeerService.peer.removeEventListener('iceconnectionstatechange', handleIceConnectionChange);
+  //     };
+  //   };
     
-    let cleanup = setupListeners();
+  //   let cleanup = setupListeners();
 
-    const handlePeerReset = () => {
-      cleanup();
-      cleanup = setupListeners();
-    };
+  //   const handlePeerReset = () => {
+  //     cleanup();
+  //     cleanup = setupListeners();
+  //   };
 
-    document.addEventListener('peer-reset', handlePeerReset);
+  //   document.addEventListener('peer-reset', handlePeerReset);
 
-    return () => {
-      cleanup();
-      document.removeEventListener('peer-reset', handlePeerReset);
-    };
-  }, []); 
+  //   return () => {
+  //     cleanup();
+  //     document.removeEventListener('peer-reset', handlePeerReset);
+  //   };
+  // }, []); 
 
   return {
     myStream,

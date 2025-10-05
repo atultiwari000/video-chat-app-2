@@ -27,9 +27,9 @@ class PeerService {
     });
   }
 
-  getPeer() {
+  async getPeer() {
     if (!this.peer && typeof window !== "undefined") {
-      this.createPeer();
+      await this.createPeer();
     }
     return this.peer;
   }

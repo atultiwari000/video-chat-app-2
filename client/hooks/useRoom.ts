@@ -159,43 +159,37 @@ export const useRoom = () => {
 
   // AUTO-CALL: automatically initiate call if conditions are met
   useEffect(() => {
-    if (
-      hasInitiatedCall.current ||
-      !remoteSocketId ||
-      !localSocketId ||
-      !handleCallUser
-    ) {
-      return;
-    }
+    const autoCall = async () => {
+      if (
+        hasInitiatedCall.current ||
+        !remoteSocketId ||
+        !localSocketId ||
+        !handleCallUser
+      ) return;
 
-    // Check if remote stream already exists - but don't add to deps
-    if (media.remoteStream) {
-      return;
-    }
+      if (media.remoteStream) return;
 
-    const peer = PeerService.getPeer();
-    const peerState = peer?.connectionState;
-    
-    if (peerState !== "new") {
-      return;
-    }
+      const peer = await PeerService.getPeer();
+      const peerState = peer?.connectionState;
 
-    const amITheCaller = localSocketId < remoteSocketId;
+      if (peerState !== "new") return;
 
-    if (amITheCaller) {
-      hasInitiatedCall.current = true;
+      const amITheCaller = localSocketId < remoteSocketId;
 
-      const timer = setTimeout(() => {
-        handleCallUser();
-      }, 500);
+      if (amITheCaller) {
+        hasInitiatedCall.current = true;
 
-      return () => clearTimeout(timer);
-    }
-  }, [
-    remoteSocketId,
-    localSocketId,
-    handleCallUser,
-  ]);
+        const timer = setTimeout(() => {
+          handleCallUser();
+        }, 500);
+
+        return () => clearTimeout(timer);
+      }
+    };
+
+    autoCall();
+  }, [remoteSocketId, localSocketId, handleCallUser]);
+
 
   useEffect(() => {
   if (!remoteSocketId) {

@@ -165,7 +165,10 @@ export const useSignaling = (opts: {
 
   // Call accepted by remote (offerer receives answer)
   const handleCallAccepted = useCallback(async ({ from, ans, userName }: any) => {
-    const signalingState = PeerService.getPeer().signalingState;
+    const peer = await PeerService.getPeer(); // await
+    if (!peer) return;
+
+    const signalingState = peer.signalingState;
     
     // If already stable, the call is already established - ignore
     if (signalingState === "stable") {
@@ -249,7 +252,7 @@ export const useSignaling = (opts: {
   }, []);
 
   // Cleanup function for when user leaves/disconnects
-  const cleanupRemoteConnection = useCallback(() => {
+  const cleanupRemoteConnection = useCallback(async () => {
     isRemoteDescriptionSet.current = false;
     iceCandidateQueue.current = [];
     hasInitiatedCall.current = false;
@@ -260,7 +263,7 @@ export const useSignaling = (opts: {
     setRemoteUserName("Remote User");
     
     try {
-      const peer = PeerService.getPeer();
+      const peer = await PeerService.getPeer();
       if (peer) {
         const senders = peer.getSenders();
         senders.forEach(sender => {
