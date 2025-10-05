@@ -1,12 +1,21 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 import { createServer } from "http";
 import bodyParser from "body-parser";
 import { Server } from "socket.io";
+import twilio from "twilio";
 
 const app = express();
 const server = createServer(app);
 
 app.use(bodyParser.json());
+
+// Twilio client
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+// console.log(accountSid, authToken);
+const client = twilio(accountSid, authToken);
 
 const allowedOrigins = [
     "https://video-chat-app-2-ki3scrodu-atultiwari000s-projects.vercel.app",
@@ -16,7 +25,7 @@ const allowedOrigins = [
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // Allow all origins temporarily to test
+    origin: allowedOrigins, // Allow all origins temporarily to test
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -193,6 +202,17 @@ io.on('connection', (socket) => {
 // Handle server errors
 io.engine.on("connection_error", (err) => {
     console.error('Connection error:', err.code, err.message);
+});
+
+// Endpoint to get ICE servers
+app.get("/ice-servers", async (req, res) => {
+  try {
+    const token = await client.tokens.create(); // creates an Access Token
+    res.json({ iceServers: token.iceServers });
+  } catch (err) {
+    console.error("Error fetching Twilio ICE servers:", err);
+    res.status(500).send("Failed to get ICE servers");
+  }
 });
 
 const PORT = process.env.PORT || 5000;
