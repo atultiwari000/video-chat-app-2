@@ -18,7 +18,7 @@ class SocketService {
 
     this.socket = io(process.env.NEXT_PUBLIC_BACKEND_URL!, {
       path: "/socket.io/",
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
@@ -32,7 +32,7 @@ class SocketService {
     });
 
     this.socket.on("connect", () => {
-      console.log("✅ Socket connected:", this.socket?.id);
+      // console.log("Socket connected:", this.socket?.id);
       this.connectionAttempts = 0; // Reset on successful connection
     });
 
@@ -49,7 +49,7 @@ class SocketService {
     });
 
     this.socket.on("disconnect", (reason) => {
-      console.log("Socket disconnected:", reason);
+      // console.log("Socket disconnected:", reason);
       if (reason === "io server disconnect") {
         // Server disconnected us, reconnect manually
         this.socket?.connect();
@@ -57,7 +57,7 @@ class SocketService {
     });
 
     this.socket.on("reconnect", (attemptNumber) => {
-      console.log(`✅ Reconnected after ${attemptNumber} attempts`);
+      // console.log(`Reconnected after ${attemptNumber} attempts`);
       this.connectionAttempts = 0;
     });
 

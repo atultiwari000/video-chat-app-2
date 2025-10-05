@@ -22,13 +22,13 @@ class PeerService {
       });
 
       this.peer.addEventListener("iceconnectionstatechange", () => {
-        console.log("ICE connection state:", this.peer.iceConnectionState);
+        // console.log("ICE connection state:", this.peer.iceConnectionState);
       });
       this.peer.addEventListener("connectionstatechange", () => {
-        console.log("Connection state:", this.peer.connectionState);
+        // console.log("Connection state:", this.peer.connectionState);
       });
       this.peer.addEventListener("signalingstatechange", () => {
-        console.log("Signaling state:", this.peer.signalingState);
+        // console.log("Signaling state:", this.peer.signalingState);
       });
 
       return this.peer;
@@ -124,7 +124,7 @@ class PeerService {
 
   // -- Reset connection --
   async reset() {
-    console.log("Resetting peer connection");
+    // console.log("Resetting peer connection");
     
     // Close existing peer
     if (this.peer) {
