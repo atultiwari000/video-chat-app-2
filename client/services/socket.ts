@@ -10,7 +10,7 @@ class SocketService {
 
     this.socket = io(process.env.NEXT_PUBLIC_BACKEND_URL!, {
       path: "/socket.io/",
-      transports: ["websocket", "polling"],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,

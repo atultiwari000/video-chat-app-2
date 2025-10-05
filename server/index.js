@@ -16,10 +16,12 @@ const allowedOrigins = [
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins, 
+    origin: "*", // Allow all origins temporarily to test
     methods: ["GET", "POST"],
     credentials: true
-    }
+  },
+  transports: ['websocket', 'polling'], // Add explicit transports
+  allowEIO3: true // Add for compatibility
 });
 
 // const userToSocketIdMap = new Map();
