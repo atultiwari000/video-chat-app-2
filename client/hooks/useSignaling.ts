@@ -192,26 +192,42 @@ export const useSignaling = (opts: {
 
   // Handle remote track events
   useEffect(() => {
-    const onTrackHandler = (ev: RTCTrackEvent) => {
-      if (ev.streams && ev.streams[0]) {
-        setRemoteStream(ev.streams[0]);
-      } else {
-        console.warn("Track event had no streams");
-      }
+    let cleanup = () => {};
+
+    const attachTrackListener = async () => {
+      const peer = await PeerService.getPeer();
+      if (!peer) return;
+
+      const onTrackHandler = (ev: RTCTrackEvent) => {
+        if (ev.streams && ev.streams[0]) {
+          setRemoteStream(ev.streams[0]);
+        } else {
+          console.warn("Track event had no streams");
+        }
+      };
+
+      peer.addEventListener("track", onTrackHandler);
+
+      cleanup = () => {
+        peer.removeEventListener("track", onTrackHandler);
+      };
     };
 
-    const unsub = PeerService.onTrack(onTrackHandler) || (() => {});
-    const onReset = () => {
-      try { unsub(); } catch (e) {}
-      PeerService.onTrack(onTrackHandler);
+    attachTrackListener();
+
+    const handlePeerReset = () => {
+      cleanup();
+      attachTrackListener();
     };
-    document.addEventListener("peer-reset", onReset);
+
+    document.addEventListener("peer-reset", handlePeerReset);
 
     return () => {
-      try { unsub(); } catch (e) {}
-      document.removeEventListener("peer-reset", onReset);
+      cleanup();
+      document.removeEventListener("peer-reset", handlePeerReset);
     };
   }, [setRemoteStream]);
+
 
   // Local ICE -> emit to signaling server
   useEffect(() => {
