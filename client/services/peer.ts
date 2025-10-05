@@ -2,45 +2,63 @@ class PeerService {
   peer!: RTCPeerConnection;  
   private senders: RTCRtpSender[] = [];
   private listeners = new Map<string, Function[]>();
+  private peerPromise: Promise<RTCPeerConnection> | null = null;
 
   constructor() {
     // Only create peer in browser
     if (typeof window !== "undefined") {
-      this.createPeer();
+      this.peerPromise = this.createPeer();
     }
   }
 
-  private async createPeer() {
-    const response = await fetch("https://video-chat-app-2-ep0t.onrender.com/ice-servers");
-    const { iceServers } = await response.json();
+  private async createPeer(): Promise<RTCPeerConnection> {
+    try {
+      const response = await fetch("https://video-chat-app-2-ep0t.onrender.com/ice-servers");
+      const { iceServers } = await response.json();
+      
+      this.peer = new RTCPeerConnection({
+        iceServers,
+        iceCandidatePoolSize: 10,
+      });
+
+      this.peer.addEventListener("iceconnectionstatechange", () => {
+        console.log("ICE connection state:", this.peer.iceConnectionState);
+      });
+      this.peer.addEventListener("connectionstatechange", () => {
+        console.log("Connection state:", this.peer.connectionState);
+      });
+      this.peer.addEventListener("signalingstatechange", () => {
+        console.log("Signaling state:", this.peer.signalingState);
+      });
+
+      return this.peer;
+    } catch (error) {
+      console.error("Error creating peer:", error);
+      throw error;
+    }
+  }
+
+  async getPeer(): Promise<RTCPeerConnection> {
+    if (!this.peerPromise && typeof window !== "undefined") {
+      this.peerPromise = this.createPeer();
+    }
     
-    this.peer = new RTCPeerConnection({
-      iceServers,
-      iceCandidatePoolSize: 10,
-    });
-
-    this.peer.addEventListener("iceconnectionstatechange", () => {
-    });
-    this.peer.addEventListener("connectionstatechange", () => {
-    });
-    this.peer.addEventListener("signalingstatechange", () => {
-    });
-  }
-
-  async getPeer() {
-    if (!this.peer && typeof window !== "undefined") {
-      await this.createPeer();
+    if (this.peerPromise) {
+      await this.peerPromise;
     }
+    
     return this.peer;
   }
 
   async getOffer() {
+    await this.getPeer(); // Ensure peer exists
     const offer = await this.peer.createOffer();
     await this.peer.setLocalDescription(offer);
     return this.peer.localDescription!;
   }
 
   async getAnswer(offer: RTCSessionDescriptionInit) {
+    await this.getPeer(); // Ensure peer exists
     await this.peer.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await this.peer.createAnswer();
     await this.peer.setLocalDescription(answer);
@@ -49,42 +67,64 @@ class PeerService {
 
   async setRemoteAnswer(answer: RTCSessionDescriptionInit) {
     try {
+      await this.getPeer(); // Ensure peer exists
       await this.peer.setRemoteDescription(new RTCSessionDescription(answer));
     } catch (err) {
-      console.warn("setRemoteAnswer failed — state:", this.peer.signalingState, err);
+      console.warn("setRemoteAnswer failed — state:", this.peer?.signalingState, err);
       throw err;
     }
   }
 
   // -- ICE helpers --
   onIceCandidate(callback: (candidate: RTCIceCandidate) => void) {
-    const handler = (ev: RTCPeerConnectionIceEvent) => {
-      if (ev.candidate) callback(ev.candidate);
+    const setupListener = async () => {
+      await this.getPeer(); // CRITICAL FIX: Wait for peer to exist
+      
+      const handler = (ev: RTCPeerConnectionIceEvent) => {
+        if (ev.candidate) callback(ev.candidate);
+      };
+      
+      this.peer.addEventListener("icecandidate", handler);
+      this.registerListener("icecandidate", handler);
+      
+      return () => {
+        if (this.peer) {
+          this.peer.removeEventListener("icecandidate", handler);
+          this.unregisterListener("icecandidate", handler);
+        }
+      };
     };
-    this.peer.addEventListener("icecandidate", handler);
-    this.registerListener("icecandidate", handler);
+
+    // Return a cleanup function that works immediately
+    let cleanup: (() => void) | null = null;
+    setupListener().then(fn => cleanup = fn);
+    
     return () => {
-      this.peer.removeEventListener("icecandidate", handler);
-      this.unregisterListener("icecandidate", handler);
+      if (cleanup) cleanup();
     };
   }
 
   async addIceCandidate(candidate: RTCIceCandidateInit) {
+    await this.getPeer(); // Ensure peer exists
     await this.peer.addIceCandidate(new RTCIceCandidate(candidate));
   }
 
   // -- Track handling --
-  onTrack(callback: (ev: RTCTrackEvent) => void) {
+  async onTrack(callback: (ev: RTCTrackEvent) => void) {
+    await this.getPeer(); // Ensure peer exists
     this.peer.addEventListener("track", callback);
     this.registerListener("track", callback);
     return () => {
-      this.peer.removeEventListener("track", callback);
-      this.unregisterListener("track", callback);
+      if (this.peer) {
+        this.peer.removeEventListener("track", callback);
+        this.unregisterListener("track", callback);
+      }
     };
   }
 
   // -- Reset connection --
-  reset() {
+  async reset() {
+    console.log("Resetting peer connection");
     
     // Close existing peer
     if (this.peer) {
@@ -114,19 +154,20 @@ class PeerService {
     this.listeners.clear();
     
     // Create fresh peer connection
-    this.createPeer();
+    this.peerPromise = this.createPeer();
+    await this.peerPromise;
     
     // Dispatch reset event
     document.dispatchEvent(new Event("peer-reset"));
-    
   }
 
-  getSenders() {
+  async getSenders() {
+    await this.getPeer();
     return this.peer.getSenders?.() || [];
   }
 
-  addLocalStream(stream: MediaStream) {
-    if (!this.peer) this.createPeer();
+  async addLocalStream(stream: MediaStream) {
+    await this.getPeer(); // Ensure peer exists
 
     const existingSenders = this.peer.getSenders?.() || [];
 
@@ -141,7 +182,7 @@ class PeerService {
     const audioSender = findSender("audio");
     try {
       if (audioSender && audioSender.replaceTrack) {
-        audioSender.replaceTrack(audioTrack);
+        await audioSender.replaceTrack(audioTrack);
       } else if (audioTrack) {
         const s = this.peer.addTrack(audioTrack, stream);
         if (s) this.senders.push(s);
@@ -154,7 +195,7 @@ class PeerService {
     const videoSender = findSender("video");
     try {
       if (videoSender && videoSender.replaceTrack) {
-        videoSender.replaceTrack(videoTrack);
+        await videoSender.replaceTrack(videoTrack);
       } else if (videoTrack) {
         const s = this.peer.addTrack(videoTrack, stream);
         if (s) this.senders.push(s);
@@ -166,7 +207,8 @@ class PeerService {
     return this.peer.getSenders?.() || [];
   }
 
-  removeAllSenders() {
+  async removeAllSenders() {
+    await this.getPeer();
     const currentSenders = this.peer.getSenders?.() || [];
     currentSenders.forEach((s) => {
       try { this.peer.removeTrack?.(s); } catch {}
@@ -174,17 +216,21 @@ class PeerService {
     this.senders = [];
   }
 
-  onConnectionStateChange(callback: () => void) {
+  async onConnectionStateChange(callback: () => void) {
+    await this.getPeer(); // Ensure peer exists
     const handler = () => callback();
     this.peer.addEventListener("connectionstatechange", handler);
     this.registerListener("connectionstatechange", handler);
     return () => {
-      this.peer.removeEventListener("connectionstatechange", handler);
-      this.unregisterListener("connectionstatechange", handler);
+      if (this.peer) {
+        this.peer.removeEventListener("connectionstatechange", handler);
+        this.unregisterListener("connectionstatechange", handler);
+      }
     };
   }
 
-  getInfo() {
+  async getInfo() {
+    await this.getPeer();
     return {
       connectionState: this.peer.connectionState,
       iceConnectionState: this.peer.iceConnectionState,
