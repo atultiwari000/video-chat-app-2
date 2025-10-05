@@ -64,39 +64,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <SocketContext.Provider value={socket}>
-      {connectionStatus !== "connected" && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 9999,
-            backgroundColor:
-              connectionStatus === "error" ? "#ef4444" : "#f59e0b",
-            color: "white",
-            padding: "12px",
-            textAlign: "center",
-            fontSize: "14px",
-            fontWeight: 500,
-          }}
-        >
-          {connectionStatus === "connecting" && (
-            <>
-              Connecting to server
-              {retryCount > 0 ? ` (attempt ${retryCount})` : ""}...
-            </>
-          )}
-          {connectionStatus === "error" && (
-            <>Connection failed. Retrying... (attempt {retryCount})</>
-          )}
-          {connectionStatus === "disconnected" && (
-            <>Disconnected from server. Reconnecting...</>
-          )}
-        </div>
-      )}
-      {children}
-    </SocketContext.Provider>
+    <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
   );
 };
