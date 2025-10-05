@@ -18,30 +18,53 @@ const authToken = process.env.TWILIO_AUTH_TOKEN;
 // console.log(accountSid, authToken);
 const client = twilio(accountSid, authToken);
 
-// Allow your Vercel frontend to access your server
-app.use(cors({
-  origin: [
-    "https://video-chat-app-2-green.vercel.app", // your frontend
-    "http://localhost:5173" // local testing
-  ],
-  methods: ["GET", "POST"],
-  credentials: true,
-}));
-
 const allowedOrigins = [
     "https://video-chat-app-2-ki3scrodu-atultiwari000s-projects.vercel.app",
     "https://video-chat-app-2-green.vercel.app",
-  "http://localhost:3000" 
+    "http://localhost:3000", 
+    /\.vercel\.app$/
 ];
+
+// Allow your Vercel frontend to access your server
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (typeof allowedOrigins.find(allowed => {
+      if (allowed instanceof RegExp) return allowed.test(origin);
+      return allowed === origin;
+    }) !== 'undefined') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
+
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins, // Allow all origins temporarily to test
+    origin: function(origin, callback) {
+      if (!origin) return callback(null, true);
+      
+      if (typeof allowedOrigins.find(allowed => {
+        if (allowed instanceof RegExp) return allowed.test(origin);
+        return allowed === origin;
+      }) !== 'undefined') {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ["GET", "POST"],
     credentials: true
   },
-  transports: ['websocket', 'polling'], // Add explicit transports
-  allowEIO3: true // Add for compatibility
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
+  pingTimeout: 60000, // Increase for slow connections
+  pingInterval: 25000
 });
 
 // const userToSocketIdMap = new Map();
