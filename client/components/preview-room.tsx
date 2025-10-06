@@ -41,26 +41,18 @@ const PreviewPageClient: React.FC = () => {
     const getMediaStream = async () => {
       try {
         setIsLoading(true);
+        console.log("Requesting media stream...");
         stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
         });
 
+        console.log("Media stream obtained:", stream);
+        console.log("Video tracks:", stream.getVideoTracks());
+        console.log("Audio tracks:", stream.getAudioTracks());
+
         setPreviewStream(stream);
         setPermissionError(null);
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-
-          try {
-            await videoRef.current.play();
-          } catch (playErr: any) {
-            if (playErr.name !== "AbortError") {
-              console.error("Error playing video:", playErr);
-            }
-          }
-        }
       } catch (error: any) {
         console.error("Error accessing media devices:", error);
         console.error("Error name:", error.name);
@@ -87,6 +79,7 @@ const PreviewPageClient: React.FC = () => {
     getMediaStream();
 
     return () => {
+      console.log("Cleaning up media stream...");
       if (stream) {
         stream.getTracks().forEach((track) => {
           track.stop();
@@ -96,24 +89,28 @@ const PreviewPageClient: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!videoRef.current || !previewStream) return;
+    if (!videoRef.current || !previewStream) {
+      console.log("Video ref or stream not ready:", {
+        hasVideoRef: !!videoRef.current,
+        hasStream: !!previewStream,
+      });
+      return;
+    }
 
     const videoEl = videoRef.current;
+    console.log("Attaching stream to video element...");
 
-    videoEl.srcObject = null;
-    videoEl.load();
+    videoEl.srcObject = previewStream;
 
-    setTimeout(() => {
-      videoEl.srcObject = previewStream;
-      videoEl.play().catch((err) => {
-        console.error("Play failed:", err.name, err.message);
-        if (err.name === "NotAllowedError") {
-          console.log("Autoplay blocked - waiting for user interaction");
-        }
-      });
-    }, 100);
+    videoEl.play().catch((err) => {
+      console.error("Play failed:", err.name, err.message);
+      if (err.name === "NotAllowedError") {
+        console.log("Autoplay blocked - waiting for user interaction");
+      }
+    });
 
     return () => {
+      console.log("Detaching stream from video element...");
       if (videoEl.srcObject) {
         videoEl.srcObject = null;
       }
@@ -207,7 +204,7 @@ const PreviewPageClient: React.FC = () => {
             {/* Video Preview Card */}
             <div className="relative aspect-video bg-card rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl">
               {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center bg-card z-10">
                   <div className="text-center">
                     <div className="animate-spin w-10 h-10 sm:w-12 sm:h-12 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
                     <p className="text-sm sm:text-base">Loading camera...</p>
@@ -216,7 +213,7 @@ const PreviewPageClient: React.FC = () => {
               )}
 
               {permissionError && (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center bg-card z-10">
                   <div className="text-center p-4 sm:p-6">
                     <VideoOff className="w-12 h-12 sm:w-16 sm:h-16 text-destructive mb-4 mx-auto" />
                     <p className="text-sm sm:text-base text-destructive font-medium mb-2">
@@ -229,42 +226,51 @@ const PreviewPageClient: React.FC = () => {
                 </div>
               )}
 
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{
+                  transform: "scaleX(-1)",
+                  display:
+                    !isLoading && !permissionError && previewStream
+                      ? "block"
+                      : "none",
+                }}
+              />
+
+              {!isLoading &&
+                !permissionError &&
+                previewStream &&
+                !videoEnabled && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-card z-10">
+                    <div className="text-center">
+                      <div className="w-16 h-16 sm:w-24 sm:h-24 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-2xl sm:text-4xl font-bold mb-3 sm:mb-4 mx-auto">
+                        {userName.charAt(0).toUpperCase()}
+                      </div>
+                      <p className="text-sm sm:text-base text-card-foreground">
+                        {userName}
+                      </p>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+                        Camera is off
+                      </p>
+                    </div>
+                  </div>
+                )}
+
               {!isLoading && !permissionError && previewStream && (
                 <>
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ transform: "scaleX(-1)" }}
-                  />
-
-                  {!videoEnabled && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-card">
-                      <div className="text-center">
-                        <div className="w-16 h-16 sm:w-24 sm:h-24 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-2xl sm:text-4xl font-bold mb-3 sm:mb-4 mx-auto">
-                          {userName.charAt(0).toUpperCase()}
-                        </div>
-                        <p className="text-sm sm:text-base text-card-foreground">
-                          {userName}
-                        </p>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-                          Camera is off
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Username overlay */}
-                  <div className="absolute bottom-3 sm:bottom-5 left-3 sm:left-4 bg-black/60 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
+                  <div className="absolute bottom-3 sm:bottom-5 left-3 sm:left-4 bg-black/60 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg z-20">
                     <p className="text-xs sm:text-sm font-medium text-white">
                       {userName}
                     </p>
                   </div>
 
                   {/* Preview Controls */}
-                  <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-3">
+                  <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-3 z-20">
                     <button
                       onClick={toggleAudio}
                       disabled={!previewStream}
