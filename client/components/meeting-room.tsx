@@ -243,7 +243,15 @@ export default function MeetingRoom() {
           {!remoteSocketId || !remoteStream ? (
             // Waiting state
             <div className="h-full flex flex-col items-center justify-center gap-3 sm:gap-4">
-              <Card className="relative w-full max-w-3xl aspect-video overflow-hidden">
+              <Card
+                className={cn(
+                  "relative overflow-hidden",
+                  // Mobile: Portrait orientation (taller and narrower) - shows more vertical frame
+                  "w-[85%] max-w-sm aspect-[3/4]",
+                  // Desktop: Landscape orientation
+                  "sm:w-full sm:max-w-3xl sm:aspect-video"
+                )}
+              >
                 {isVideoOn && myStream ? (
                   <video
                     key="local-waiting"
@@ -342,9 +350,9 @@ export default function MeetingRoom() {
             </div>
           ) : (
             // Active call state
-            <div className="h-full flex flex-col md:flex-row gap-2 sm:gap-4">
+            <div className="h-full flex flex-col md:flex-row gap-2 sm:gap-4 relative">
               {/* Remote participant video */}
-              <Card className="flex-1 relative overflow-hidden">
+              <Card className="flex-1 relative overflow-hidden min-h-0">
                 <video
                   ref={remoteVideoRef}
                   autoPlay
@@ -387,9 +395,24 @@ export default function MeetingRoom() {
                   </div>
                 )}
               </Card>
-              {/* Local video (PIP) */}
-              <Card className="w-full md:w-64 lg:w-80 h-32 md:h-auto">
-                <Card className="relative aspect-video overflow-hidden">
+              {/* Local video (PIP) - Mobile: bottom-right corner overlay */}
+              <Card
+                className={cn(
+                  // Mobile: Fixed position overlay in bottom-right, portrait orientation
+                  "absolute bottom-4 right-4 z-10",
+                  "w-28 h-40 shadow-lg",
+                  // Desktop: normal flex positioning, landscape orientation
+                  "md:relative md:bottom-auto md:right-auto md:z-auto md:shadow-none",
+                  "md:w-64 lg:w-80 md:h-auto"
+                )}
+              >
+                <Card
+                  className={cn(
+                    "relative overflow-hidden w-full h-full",
+                    // Mobile: portrait aspect maintained
+                    "aspect-[3/4] md:aspect-video"
+                  )}
+                >
                   {isVideoOn && myStream ? (
                     <video
                       key="local-pip"
@@ -405,12 +428,22 @@ export default function MeetingRoom() {
                   ) : (
                     <div className="absolute inset-0 bg-muted flex items-center justify-center">
                       <div className="text-center">
-                        <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-1 sm:mb-2">
-                          <span className="text-lg sm:text-2xl font-semibold text-primary">
+                        <div
+                          className={cn(
+                            "rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-1 sm:mb-2",
+                            "w-12 h-12 sm:w-16 sm:h-16"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "font-semibold text-primary",
+                              "text-xl sm:text-2xl"
+                            )}
+                          >
                             {localUserName.charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <p className="text-xs sm:text-sm font-medium">
+                        <p className="text-xs sm:text-sm font-medium px-2">
                           {localUserName}
                         </p>
                       </div>
