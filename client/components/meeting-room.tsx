@@ -62,18 +62,27 @@ export default function MeetingRoom() {
   const [messageInput, setMessageInput] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [mirrorLocalVideo, setMirrorLocalVideo] = useState(false); // Toggle for mirroring
+  const [deviceType, setDeviceType] = useState<"mobile" | "tablet" | "desktop">(
+    "desktop"
+  );
+  const [mirrorLocalVideo, setMirrorLocalVideo] = useState(false);
 
+  // Detect device type
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+    const detectDevice = () => {
+      const width = window.innerWidth;
+      if (width < 768) {
+        setDeviceType("mobile");
+      } else if (width < 1024) {
+        setDeviceType("tablet");
+      } else {
+        setDeviceType("desktop");
+      }
     };
 
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-
-    return () => window.removeEventListener("resize", checkMobile);
+    detectDevice();
+    window.addEventListener("resize", detectDevice);
+    return () => window.removeEventListener("resize", detectDevice);
   }, []);
 
   useEffect(() => {
@@ -137,15 +146,6 @@ export default function MeetingRoom() {
     setTimeout(() => setCodeCopied(false), 2000);
   };
 
-  const handleSendMessage = () => {
-    if (messageInput.trim()) {
-      if (messageInput.trim()) {
-        sendMessage(messageInput);
-        setMessageInput("");
-      }
-    }
-  };
-
   const handleMessageInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setMessageInput(e.target.value);
@@ -189,6 +189,7 @@ export default function MeetingRoom() {
           </div>
         </div>
       )}
+
       {/* Header */}
       <header className="border-b border-border px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -241,17 +242,9 @@ export default function MeetingRoom() {
         {/* Video Area */}
         <div className="flex-1 p-2 sm:p-4 relative">
           {!remoteSocketId || !remoteStream ? (
-            // Waiting state
+            // Waiting state - Full preview
             <div className="h-full flex flex-col items-center justify-center gap-3 sm:gap-4">
-              <Card
-                className={cn(
-                  "relative overflow-hidden",
-                  // Mobile: Portrait orientation (taller and narrower) - shows more vertical frame
-                  "w-[85%] max-w-sm aspect-[3/4]",
-                  // Desktop: Landscape orientation
-                  "sm:w-full sm:max-w-3xl sm:aspect-video"
-                )}
-              >
+              <Card className="relative w-full max-w-4xl h-full max-h-[70vh] bg-black">
                 {isVideoOn && myStream ? (
                   <video
                     key="local-waiting"
@@ -259,7 +252,7 @@ export default function MeetingRoom() {
                     autoPlay
                     playsInline
                     muted
-                    className="absolute inset-0 w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                     style={{
                       transform: mirrorLocalVideo ? "scaleX(-1)" : "none",
                     }}
@@ -272,7 +265,7 @@ export default function MeetingRoom() {
                           {localUserName.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <p className="text-base sm:text-lg font-medium">
+                      <p className="text-base sm:text-lg font-medium text-white">
                         {localUserName}
                       </p>
                     </div>
@@ -323,7 +316,6 @@ export default function MeetingRoom() {
                   </div>
                 </div>
 
-                {/* Preview indicator */}
                 {isVideoOn && (
                   <div className="absolute top-2 sm:top-4 left-2 sm:left-4 bg-blue-500/90 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
                     <p className="text-[10px] sm:text-xs font-medium text-white">
@@ -350,14 +342,14 @@ export default function MeetingRoom() {
             </div>
           ) : (
             // Active call state
-            <div className="h-full flex flex-col md:flex-row gap-2 sm:gap-4 relative">
-              {/* Remote participant video */}
-              <Card className="flex-1 relative overflow-hidden min-h-0">
+            <div className="h-full w-full relative">
+              {/* Remote participant video - Full screen */}
+              <Card className="absolute inset-0 bg-black overflow-hidden">
                 <video
                   ref={remoteVideoRef}
                   autoPlay
                   playsInline
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
                 {!remoteStream && (
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
@@ -367,7 +359,7 @@ export default function MeetingRoom() {
                           {remoteUserName.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <p className="text-lg sm:text-xl font-medium">
+                      <p className="text-lg sm:text-xl font-medium text-white">
                         {remoteUserName}
                       </p>
                     </div>
@@ -375,7 +367,7 @@ export default function MeetingRoom() {
                 )}
 
                 {captionsEnabled && currentCaption && (
-                  <div className="absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 max-w-[90%] bg-black/90 text-white px-3 sm:px-6 py-2 sm:py-3 rounded-lg text-xs sm:text-base backdrop-blur-sm shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <div className="absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 max-w-[90%] bg-black/90 text-white px-3 sm:px-6 py-2 sm:py-3 rounded-lg text-xs sm:text-base backdrop-blur-sm shadow-lg">
                     {currentCaption}
                   </div>
                 )}
@@ -395,123 +387,100 @@ export default function MeetingRoom() {
                   </div>
                 )}
               </Card>
-              {/* Local video (PIP) - Mobile: bottom-right corner overlay */}
+
+              {/* Local video (PIP) - Top right corner, shows full capture */}
               <Card
                 className={cn(
-                  // Mobile: Fixed position overlay in bottom-right, portrait orientation
-                  "absolute bottom-4 right-4 z-10",
-                  "w-28 h-40 shadow-lg",
-                  // Desktop: normal flex positioning, landscape orientation
-                  "md:relative md:bottom-auto md:right-auto md:z-auto md:shadow-none",
-                  "md:w-64 lg:w-80 md:h-auto"
+                  "absolute z-10 bg-black overflow-hidden shadow-2xl border-2 border-background",
+                  // Position based on device
+                  deviceType === "mobile"
+                    ? "top-2 right-2 w-24 h-32"
+                    : deviceType === "tablet"
+                    ? "top-4 right-4 w-32 h-40"
+                    : "top-4 right-4 w-48 h-64"
                 )}
               >
-                <Card
-                  className={cn(
-                    "relative overflow-hidden w-full h-full",
-                    // Mobile: portrait aspect maintained
-                    "aspect-[3/4] md:aspect-video"
-                  )}
-                >
-                  {isVideoOn && myStream ? (
-                    <video
-                      key="local-pip"
-                      ref={pipVideoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="absolute inset-0 w-full h-full object-cover"
-                      style={{
-                        transform: mirrorLocalVideo ? "scaleX(-1)" : "none",
-                      }}
-                    />
-                  ) : (
-                    <div className="absolute inset-0 bg-muted flex items-center justify-center">
-                      <div className="text-center">
-                        <div
+                {isVideoOn && myStream ? (
+                  <video
+                    key="local-pip"
+                    ref={pipVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-contain"
+                    style={{
+                      transform: mirrorLocalVideo ? "scaleX(-1)" : "none",
+                    }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-muted flex items-center justify-center">
+                    <div className="text-center">
+                      <div
+                        className={cn(
+                          "rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-1",
+                          deviceType === "mobile" ? "w-8 h-8" : "w-12 h-12"
+                        )}
+                      >
+                        <span
                           className={cn(
-                            "rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-1 sm:mb-2",
-                            "w-12 h-12 sm:w-16 sm:h-16"
+                            "font-semibold text-primary",
+                            deviceType === "mobile" ? "text-sm" : "text-xl"
                           )}
                         >
-                          <span
-                            className={cn(
-                              "font-semibold text-primary",
-                              "text-xl sm:text-2xl"
-                            )}
-                          >
-                            {localUserName.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <p className="text-xs sm:text-sm font-medium px-2">
-                          {localUserName}
-                        </p>
+                          {localUserName.charAt(0).toUpperCase()}
+                        </span>
                       </div>
-                    </div>
-                  )}
-
-                  <div className="absolute bottom-1 sm:bottom-2 left-1 sm:left-2 bg-background/80 backdrop-blur-sm px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium flex items-center gap-1">
-                    {localUserName}
-                    <Badge
-                      variant="secondary"
-                      className="text-[8px] sm:text-[10px] px-0.5 sm:px-1 py-0"
-                    >
-                      You
-                    </Badge>
-                  </div>
-
-                  <div className="absolute bottom-1 sm:bottom-2 right-1 sm:right-2 flex gap-1">
-                    {isVideoOn && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setMirrorLocalVideo(!mirrorLocalVideo)}
-                        className="h-6 w-6 bg-background/80 backdrop-blur-sm hover:bg-background/90 p-0"
-                        title={
-                          mirrorLocalVideo
-                            ? "Show actual view"
-                            : "Show mirror view"
-                        }
+                      <p
+                        className={cn(
+                          "font-medium px-1 text-white",
+                          deviceType === "mobile" ? "text-[8px]" : "text-xs"
+                        )}
                       >
-                        <FlipHorizontal className="w-3 h-3" />
-                      </Button>
-                    )}
-                    <div
-                      className={cn(
-                        "rounded-full p-1 sm:p-1.5",
-                        !isAudioOn
-                          ? "bg-destructive"
-                          : "bg-background/80 backdrop-blur-sm"
-                      )}
-                    >
-                      {!isAudioOn ? (
-                        <MicOff className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
-                      ) : (
-                        <Mic className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* PIP Preview indicator */}
-                  {isVideoOn && (
-                    <div className="absolute top-1 sm:top-2 left-1 sm:left-2 bg-blue-500/90 backdrop-blur-sm px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
-                      <p className="text-[8px] sm:text-[10px] font-medium text-white">
-                        {mirrorLocalVideo ? "Mirror" : "Actual"}
+                        {localUserName}
                       </p>
                     </div>
+                  </div>
+                )}
+
+                <div className="absolute bottom-1 left-1 bg-background/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[8px] sm:text-[10px] font-medium flex items-center gap-1">
+                  You
+                  {!isAudioOn && (
+                    <MicOff className="w-2 h-2 text-destructive" />
                   )}
-                </Card>
+                </div>
+
+                {isVideoOn && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setMirrorLocalVideo(!mirrorLocalVideo)}
+                    className={cn(
+                      "absolute top-1 right-1 bg-background/80 backdrop-blur-sm hover:bg-background/90",
+                      deviceType === "mobile" ? "h-5 w-5 p-0" : "h-6 w-6 p-0"
+                    )}
+                    title={
+                      mirrorLocalVideo ? "Show actual view" : "Show mirror view"
+                    }
+                  >
+                    <FlipHorizontal
+                      className={
+                        deviceType === "mobile" ? "w-2.5 h-2.5" : "w-3 h-3"
+                      }
+                    />
+                  </Button>
+                )}
               </Card>
             </div>
           )}
         </div>
+
         {/* Chat Sidebar */}
         {showChat && (
           <ChatSidebar
             messages={messages}
             onSendMessage={sendMessage}
             remoteSocketId={remoteSocketId}
-            isMobile={isMobile}
+            isMobile={deviceType === "mobile"}
             onClose={() => setShowChat(false)}
           />
         )}
@@ -522,9 +491,9 @@ export default function MeetingRoom() {
         <div className="flex items-center justify-center gap-1.5 sm:gap-3">
           <Button
             variant={!isAudioOn ? "destructive" : "secondary"}
-            size={isMobile ? "icon" : "lg"}
+            size={deviceType === "mobile" ? "icon" : "lg"}
             onClick={handleToggleAudio}
-            className={cn("gap-2", isMobile && "h-10 w-10")}
+            className={cn("gap-2", deviceType === "mobile" && "h-10 w-10")}
           >
             {!isAudioOn ? (
               <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -538,9 +507,9 @@ export default function MeetingRoom() {
 
           <Button
             variant={!isVideoOn ? "destructive" : "secondary"}
-            size={isMobile ? "icon" : "lg"}
+            size={deviceType === "mobile" ? "icon" : "lg"}
             onClick={handleToggleVideo}
-            className={cn("gap-2", isMobile && "h-10 w-10")}
+            className={cn("gap-2", deviceType === "mobile" && "h-10 w-10")}
           >
             {!isVideoOn ? (
               <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -554,9 +523,12 @@ export default function MeetingRoom() {
 
           <Button
             variant="secondary"
-            size={isMobile ? "icon" : "lg"}
+            size={deviceType === "mobile" ? "icon" : "lg"}
             onClick={() => setShowChat(!showChat)}
-            className={cn("gap-2 relative", isMobile && "h-10 w-10")}
+            className={cn(
+              "gap-2 relative",
+              deviceType === "mobile" && "h-10 w-10"
+            )}
           >
             <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
             <span className="hidden md:inline">Chat</span>
@@ -567,7 +539,7 @@ export default function MeetingRoom() {
             )}
           </Button>
 
-          {!isMobile && (
+          {deviceType !== "mobile" && (
             <>
               <Button
                 variant={captionsEnabled ? "default" : "secondary"}
@@ -602,9 +574,9 @@ export default function MeetingRoom() {
 
           <Button
             variant="destructive"
-            size={isMobile ? "icon" : "lg"}
+            size={deviceType === "mobile" ? "icon" : "lg"}
             onClick={handleLeaveMeeting}
-            className={cn("gap-2", isMobile && "h-10 w-10")}
+            className={cn("gap-2", deviceType === "mobile" && "h-10 w-10")}
           >
             <PhoneOff className="w-4 h-4 sm:w-5 sm:h-5" />
             <span className="hidden md:inline">Leave</span>
