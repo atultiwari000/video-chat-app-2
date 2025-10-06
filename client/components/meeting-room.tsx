@@ -316,7 +316,7 @@ export default function MeetingRoom() {
                   </div>
                 </div>
 
-                {isVideoOn && (
+                {/* {isVideoOn && (
                   <div className="absolute top-2 sm:top-4 left-2 sm:left-4 bg-blue-500/90 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
                     <p className="text-[10px] sm:text-xs font-medium text-white">
                       {mirrorLocalVideo
@@ -324,7 +324,7 @@ export default function MeetingRoom() {
                         : "Actual View (What Others See)"}
                     </p>
                   </div>
-                )}
+                )} */}
               </Card>
 
               <div className="text-center px-4">
