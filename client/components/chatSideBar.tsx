@@ -31,7 +31,7 @@ interface ChatSidebarProps {
 const ChatMessage = memo(({ message }: { message: Message }) => (
   <div
     className={cn(
-      "rounded-lg p-3",
+      "rounded-lg p-3 break-words",
       message.isLocal
         ? "bg-primary text-primary-foreground ml-4"
         : message.sender === "System"
@@ -48,7 +48,7 @@ const ChatMessage = memo(({ message }: { message: Message }) => (
         })}
       </p>
     </div>
-    <p className="text-sm">{message.text}</p>
+    <p className="text-sm whitespace-pre-wrap">{message.text}</p>
   </div>
 ));
 
@@ -63,17 +63,38 @@ export const ChatSidebar = memo(
     onClose,
   }: ChatSidebarProps) => {
     const [messageInput, setMessageInput] = useState("");
-    const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (messagesContainerRef.current) {
+        const container = messagesContainerRef.current;
+        // Check if user was near bottom before new message
+        const isNearBottom =
+          container.scrollHeight -
+            container.scrollTop -
+            container.clientHeight <
+          100;
+
+        if (isNearBottom) {
+          // Small delay to ensure DOM has updated
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 50);
+        }
+      }
     }, [messages]);
 
     const handleSend = useCallback(() => {
       if (messageInput.trim()) {
-        onSendMessage(messageInput);
+        onSendMessage(messageInput.trim());
         setMessageInput("");
+
+        // Force scroll to bottom after sending
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
       }
     }, [messageInput, onSendMessage]);
 
@@ -94,8 +115,9 @@ export const ChatSidebar = memo(
           isMobile ? "fixed inset-0 z-50" : "w-80 border-l border-border"
         )}
       >
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <div className="flex-1">
+        {/* Header */}
+        <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0">
+          <div className="flex-1 min-w-0">
             <h2 className="font-semibold text-base sm:text-lg">Meeting chat</h2>
             <p className="text-xs text-muted-foreground mt-1">
               {remoteSocketId ? "2 participants" : "Only you"}
@@ -106,18 +128,21 @@ export const ChatSidebar = memo(
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="flex-shrink-0"
+              className="flex-shrink-0 ml-2"
             >
               <X className="w-5 h-5" />
             </Button>
           )}
         </div>
 
-        <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+        {/* Messages Area */}
+        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4">
           {messages.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No messages yet
-            </p>
+            <div className="flex items-center justify-center h-full">
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No messages yet
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {messages.map((message) => (
@@ -126,17 +151,24 @@ export const ChatSidebar = memo(
               <div ref={messagesEndRef} />
             </div>
           )}
-        </ScrollArea>
+        </div>
 
-        <div className="p-3 sm:p-4 border-t border-border">
+        {/* Input Area */}
+        <div className="p-3 sm:p-4 border-t border-border flex-shrink-0">
           <div className="flex gap-2">
             <Input
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={
+                remoteSocketId
+                  ? "Type a message..."
+                  : "Waiting for participant..."
+              }
               className="flex-1 h-10 sm:h-11 text-base"
               disabled={!remoteSocketId}
+              autoComplete="off"
+              maxLength={500}
             />
             <Button
               size="icon"
@@ -150,6 +182,11 @@ export const ChatSidebar = memo(
           {!remoteSocketId && (
             <p className="text-xs text-muted-foreground mt-2">
               Chat will be available when someone joins
+            </p>
+          )}
+          {messageInput.length > 450 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {500 - messageInput.length} characters remaining
             </p>
           )}
         </div>

@@ -18,6 +18,7 @@ import {
   Copy,
   Check,
   Maximize,
+  FlipHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRoom } from "@/hooks/useRoom";
@@ -62,6 +63,7 @@ export default function MeetingRoom() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [mirrorLocalVideo, setMirrorLocalVideo] = useState(false); // Toggle for mirroring
 
   useEffect(() => {
     const checkMobile = () => {
@@ -250,7 +252,9 @@ export default function MeetingRoom() {
                     playsInline
                     muted
                     className="absolute inset-0 w-full h-full object-cover"
-                    style={{ transform: "scaleX(-1)" }}
+                    style={{
+                      transform: mirrorLocalVideo ? "scaleX(-1)" : "none",
+                    }}
                   />
                 ) : (
                   <div className="absolute inset-0 bg-muted flex items-center justify-center">
@@ -279,7 +283,22 @@ export default function MeetingRoom() {
                   </Badge>
                 </div>
 
-                <div className="absolute bottom-2 sm:bottom-4 right-2 sm:right-4">
+                <div className="absolute bottom-2 sm:bottom-4 right-2 sm:right-4 flex gap-2">
+                  {isVideoOn && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setMirrorLocalVideo(!mirrorLocalVideo)}
+                      className="h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background/90"
+                      title={
+                        mirrorLocalVideo
+                          ? "Show actual view (what others see)"
+                          : "Show mirror view"
+                      }
+                    >
+                      <FlipHorizontal className="w-4 h-4" />
+                    </Button>
+                  )}
                   <div
                     className={cn(
                       "rounded-full p-1.5 sm:p-2",
@@ -295,6 +314,17 @@ export default function MeetingRoom() {
                     )}
                   </div>
                 </div>
+
+                {/* Preview indicator */}
+                {isVideoOn && (
+                  <div className="absolute top-2 sm:top-4 left-2 sm:left-4 bg-blue-500/90 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
+                    <p className="text-[10px] sm:text-xs font-medium text-white">
+                      {mirrorLocalVideo
+                        ? "Mirror Preview"
+                        : "Actual View (What Others See)"}
+                    </p>
+                  </div>
+                )}
               </Card>
 
               <div className="text-center px-4">
@@ -368,7 +398,9 @@ export default function MeetingRoom() {
                       playsInline
                       muted
                       className="absolute inset-0 w-full h-full object-cover"
-                      style={{ transform: "scaleX(-1)" }}
+                      style={{
+                        transform: mirrorLocalVideo ? "scaleX(-1)" : "none",
+                      }}
                     />
                   ) : (
                     <div className="absolute inset-0 bg-muted flex items-center justify-center">
@@ -395,7 +427,22 @@ export default function MeetingRoom() {
                     </Badge>
                   </div>
 
-                  <div className="absolute bottom-1 sm:bottom-2 right-1 sm:right-2">
+                  <div className="absolute bottom-1 sm:bottom-2 right-1 sm:right-2 flex gap-1">
+                    {isVideoOn && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setMirrorLocalVideo(!mirrorLocalVideo)}
+                        className="h-6 w-6 bg-background/80 backdrop-blur-sm hover:bg-background/90 p-0"
+                        title={
+                          mirrorLocalVideo
+                            ? "Show actual view"
+                            : "Show mirror view"
+                        }
+                      >
+                        <FlipHorizontal className="w-3 h-3" />
+                      </Button>
+                    )}
                     <div
                       className={cn(
                         "rounded-full p-1 sm:p-1.5",
@@ -411,6 +458,15 @@ export default function MeetingRoom() {
                       )}
                     </div>
                   </div>
+
+                  {/* PIP Preview indicator */}
+                  {isVideoOn && (
+                    <div className="absolute top-1 sm:top-2 left-1 sm:left-2 bg-blue-500/90 backdrop-blur-sm px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
+                      <p className="text-[8px] sm:text-[10px] font-medium text-white">
+                        {mirrorLocalVideo ? "Mirror" : "Actual"}
+                      </p>
+                    </div>
+                  )}
                 </Card>
               </Card>
             </div>
