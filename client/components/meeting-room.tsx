@@ -366,11 +366,11 @@ export default function MeetingRoom() {
                   </div>
                 )}
 
-                {captionsEnabled && currentCaption && (
+                {/* {captionsEnabled && currentCaption && (
                   <div className="absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 max-w-[90%] bg-black/90 text-white px-3 sm:px-6 py-2 sm:py-3 rounded-lg text-xs sm:text-base backdrop-blur-sm shadow-lg">
                     {currentCaption}
                   </div>
-                )}
+                )} */}
 
                 <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 bg-background/80 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg">
                   <p className="text-xs sm:text-sm font-medium">
@@ -378,14 +378,14 @@ export default function MeetingRoom() {
                   </p>
                 </div>
 
-                {captionsEnabled && (
+                {/* {captionsEnabled && (
                   <div className="absolute top-2 sm:top-4 right-2 sm:right-4 bg-green-500/90 backdrop-blur-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg flex items-center gap-1 sm:gap-2">
                     <Subtitles className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                     <span className="text-[10px] sm:text-xs font-medium text-white">
                       Captions Active
                     </span>
                   </div>
-                )}
+                )} */}
               </Card>
 
               {/* Local video (PIP) - Top right corner, shows full capture */}
@@ -538,7 +538,7 @@ export default function MeetingRoom() {
               </Badge>
             )}
           </Button>
-
+          {/* 
           {deviceType !== "mobile" && (
             <>
               <Button
@@ -568,7 +568,7 @@ export default function MeetingRoom() {
                 {isFullscreen ? "Exit" : "Fullscreen"}
               </Button>
             </>
-          )}
+          )} */}
 
           <div className="flex-1" />
 
